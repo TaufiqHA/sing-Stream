@@ -147,11 +147,12 @@ class _SplashScreenState extends State<SplashScreen>
                         ],
                       ).createShader(bounds),
                       child: const Text(
-                        'Sing Stream',
+                        'Melindastore Youtube Stream Karaoke',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 34,
+                          fontSize: 22,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 1.5,
+                          letterSpacing: 0.8,
                           color: Colors.white,
                         ),
                       ),

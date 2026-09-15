@@ -19,6 +19,7 @@ class SongCatalogPlaylistSection extends StatefulWidget {
   final Future<void> Function()? onRefresh;
   final ValueChanged<String>? onSearch;
   final Axis axis;
+  final bool isTestMode;
 
   const SongCatalogPlaylistSection({
     super.key,
@@ -35,6 +36,7 @@ class SongCatalogPlaylistSection extends StatefulWidget {
     this.onRefresh,
     this.onSearch,
     this.axis = Axis.horizontal,
+    this.isTestMode = false,
   });
 
   @override
@@ -72,12 +74,33 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
     }
   }
 
+  List<SongModel> _shuffledSongs = [];
+
+  void _syncShuffledSongs({bool force = false}) {
+    if (widget.isTestMode) {
+      _shuffledSongs = List<SongModel>.from(widget.songs);
+      return;
+    }
+    if (force || _shuffledSongs.isEmpty || _shuffledSongs.length != widget.songs.length) {
+      _shuffledSongs = List<SongModel>.from(widget.songs)..shuffle();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _syncShuffledSongs(force: true);
     _searchController.addListener(() {
       setState(() {});
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant SongCatalogPlaylistSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.songs != oldWidget.songs) {
+      _syncShuffledSongs(force: true);
+    }
   }
 
   @override
@@ -139,7 +162,11 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
 
   List<SongModel> get _filteredSongs {
     final query = _searchController.text.trim().toLowerCase();
-    return widget.songs.where((song) {
+    final sourceList = (query.isEmpty && !_hasActiveFilters && _shuffledSongs.isNotEmpty)
+        ? _shuffledSongs
+        : widget.songs;
+
+    return sourceList.where((song) {
       final matchesQuery = query.isEmpty ||
           song.songtitle.toLowerCase().contains(query) ||
           song.songsinger.toLowerCase().contains(query);
@@ -297,6 +324,7 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
                       onPressed: () {
                         _searchController.clear();
                         _searchDebounce?.cancel();
+                        _syncShuffledSongs(force: true);
                         widget.onSearch?.call('');
                       },
                     )
@@ -905,37 +933,36 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
                   ),
 
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(7, 6, 7, 7),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                    padding: const EdgeInsets.fromLTRB(7, 6, 7, 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                song.songtitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                song.songsinger,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 9.5,
-                                  color: Color(0xFF98B8DA),
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Wrap(
+                        Text(
+                          song.songtitle,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            height: 1.25,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          song.songsinger,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            color: Color(0xFF98B8DA),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Wrap(
                                 spacing: 3,
                                 runSpacing: 2,
                                 children: [
@@ -948,46 +975,44 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
                                     ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-
-                        IconButton(
-                          onPressed: () => widget.onPlaySong(song),
-                          tooltip: 'Putar Lagu',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                          visualDensity: VisualDensity.compact,
-                          icon: Icon(
-                            isCurrent ? Icons.refresh_rounded : Icons.play_arrow_rounded,
-                            color: AppColors.accentCyan,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-
-                        IconButton(
-                          onPressed: () {
-                            widget.onAddToQueue(song);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('"${song.songtitle}" ditambahkan ke playlist'),
-                                duration: const Duration(seconds: 1),
-                                behavior: SnackBarBehavior.floating,
-                                backgroundColor: AppColors.primaryElectric,
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              onPressed: () => widget.onPlaySong(song),
+                              tooltip: 'Putar Lagu',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                isCurrent ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                                color: AppColors.accentCyan,
+                                size: 20,
                               ),
-                            );
-                          },
-                          tooltip: 'Tambah ke Playlist',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(
-                            Icons.playlist_add_rounded,
-                            color: Color(0xFF85B6DF),
-                            size: 20,
-                          ),
+                            ),
+                            const SizedBox(width: 2),
+                            IconButton(
+                              onPressed: () {
+                                widget.onAddToQueue(song);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('"${song.songtitle}" ditambahkan ke playlist'),
+                                    duration: const Duration(seconds: 1),
+                                    behavior: SnackBarBehavior.floating,
+                                    backgroundColor: AppColors.primaryElectric,
+                                  ),
+                                );
+                              },
+                              tooltip: 'Tambah ke Playlist',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.playlist_add_rounded,
+                                color: Color(0xFF85B6DF),
+                                size: 20,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1017,12 +1042,11 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
                       children: [
                         Text(
                           song.songtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
+                            height: 1.25,
                           ),
                         ),
                         const SizedBox(height: 1),

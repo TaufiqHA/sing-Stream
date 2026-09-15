@@ -440,12 +440,11 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                                     children: [
                                       Text(
                                         song.songtitle,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
                                           color: isCurrentlyPlaying ? AppColors.accentCyan : Colors.white,
+                                          height: 1.25,
                                         ),
                                       ),
                                       const SizedBox(height: 2),

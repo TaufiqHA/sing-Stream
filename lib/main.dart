@@ -29,7 +29,7 @@ class KaraokeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sing Stream',
+      title: 'Melindastore Youtube Stream Karaoke',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

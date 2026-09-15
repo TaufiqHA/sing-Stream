@@ -77,7 +77,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Verifikasi Header (Minimalis tanpa subteks & tanpa tombol cari)
-    expect(find.text('Sing Stream'), findsOneWidget);
+    expect(find.text('Melindastore Youtube Stream Karaoke'), findsOneWidget);
     expect(find.text('Ruang Bernyanyi'), findsNothing);
     expect(find.byTooltip('Cari Lagu'), findsNothing);
     expect(find.byTooltip('Manajemen Profil'), findsNothing);

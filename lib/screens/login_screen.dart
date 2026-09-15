@@ -165,11 +165,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // App Title
                   const Text(
-                    'Sing Stream',
+                    'Melindastore Youtube Stream Karaoke',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
+                      letterSpacing: 0.8,
                       color: Colors.white,
                     ),
                   ),

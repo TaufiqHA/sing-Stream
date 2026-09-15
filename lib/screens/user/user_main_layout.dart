@@ -256,7 +256,11 @@ class _UserMainLayoutState extends State<UserMainLayout> {
         setState(() {
           _currentUser = user;
           _categories = cats.isNotEmpty ? cats : _categories;
-          _allSongs = songs.isNotEmpty ? songs : _allSongs;
+          final randomizedSongs = List<SongModel>.from(songs);
+          if (!widget.isTestMode) {
+            randomizedSongs.shuffle();
+          }
+          _allSongs = randomizedSongs.isNotEmpty ? randomizedSongs : _allSongs;
           // Saat pertama kali dibuka, player dalam kondisi kosong (standby).
           // Lagu baru muncul ketika pengguna memilih lagu dari katalog.
           _currentSong = null;
@@ -278,6 +282,9 @@ class _UserMainLayoutState extends State<UserMainLayout> {
       final songs = await _songService.getSongs(search: query);
       if (mounted) {
         setState(() {
+          if (query.trim().isEmpty && !widget.isTestMode) {
+            songs.shuffle();
+          }
           _allSongs = songs;
           _isLoading = false;
         });
@@ -737,6 +744,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                 onClearQueue: _clearQueue,
                                 onRefresh: _loadData,
                                 onSearch: _searchSongs,
+                                isTestMode: widget.isTestMode,
                               ),
                             ),
                           ],
@@ -812,6 +820,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                 onClearQueue: _clearQueue,
                                 onRefresh: _loadData,
                                 onSearch: _searchSongs,
+                                isTestMode: widget.isTestMode,
                               ),
                             ),
                           ],
@@ -882,6 +891,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                               onClearQueue: _clearQueue,
                               onRefresh: _loadData,
                               onSearch: _searchSongs,
+                              isTestMode: widget.isTestMode,
                             ),
                           ),
                         ],
@@ -923,14 +933,15 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                 const SizedBox(width: 8),
                 const Flexible(
                   child: Text(
-                    'Sing Stream',
+                    'Melindastore Youtube Stream Karaoke',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      letterSpacing: 0.5,
+                      letterSpacing: 0.3,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

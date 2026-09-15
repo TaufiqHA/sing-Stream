@@ -70,7 +70,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Ringkasan data sistem Sing Stream',
+                  'Ringkasan data sistem Melindastore Youtube Stream Karaoke',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppColors.textSecondary,

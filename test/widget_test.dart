@@ -29,8 +29,8 @@ void main() {
   testWidgets('Splash screen renders properly and transitions to UserMainLayout', (WidgetTester tester) async {
     await tester.pumpWidget(const KaraokeApp());
 
-    // Memverifikasi Splash Screen tampil dengan teks 'Sing Stream'
-    expect(find.text('Sing Stream'), findsOneWidget);
+    // Memverifikasi Splash Screen tampil dengan teks 'Melindastore Youtube Stream Karaoke'
+    expect(find.text('Melindastore Youtube Stream Karaoke'), findsOneWidget);
     expect(find.byType(SplashScreen), findsOneWidget);
 
     // Animasi pump
