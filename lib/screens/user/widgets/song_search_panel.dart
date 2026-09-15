@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/category_model.dart';
 import '../../../models/song_model.dart';
+import 'song_cover_thumbnail.dart';
 
 class SongSearchPanel extends StatefulWidget {
   final List<SongModel> songs;
@@ -423,6 +424,15 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                             ),
                             child: Row(
                               children: [
+                                // Cover Video / Thumbnail
+                                SongCoverThumbnail(
+                                  songUrl: song.songurl,
+                                  width: 68,
+                                  height: 44,
+                                  borderRadius: 8,
+                                ),
+                                const SizedBox(width: 10),
+
                                 // Title & Details
                                 Expanded(
                                   child: Column(

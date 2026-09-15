@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../models/category_model.dart';
 import '../../../models/nada_model.dart';
 import '../../../models/song_model.dart';
+import '../../user/widgets/song_cover_thumbnail.dart';
 
 class AdminSongScreen extends StatefulWidget {
   final SongService? songService;
@@ -1309,22 +1310,28 @@ class _AdminSongScreenState extends State<AdminSongScreen> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                // Song Leading Icon / Number
-                                Container(
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    gradient: AppColors.cardGradient,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: AppColors.accentCyan.withValues(alpha: 0.3),
+                                // Song Leading Icon / Cover Thumbnail
+                                SongCoverThumbnail(
+                                  songUrl: song.songurl,
+                                  width: 56,
+                                  height: 38,
+                                  borderRadius: 8,
+                                  fallback: Container(
+                                    width: 56,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      gradient: AppColors.cardGradient,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: AppColors.accentCyan.withValues(alpha: 0.3),
+                                      ),
                                     ),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.music_note_rounded,
-                                      color: AppColors.accentCyan,
-                                      size: 22,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.music_note_rounded,
+                                        color: AppColors.accentCyan,
+                                        size: 20,
+                                      ),
                                     ),
                                   ),
                                 ),

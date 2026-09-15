@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/category_model.dart';
 import '../../../models/song_model.dart';
+import 'song_cover_thumbnail.dart';
 
 class SongCatalogPlaylistSection extends StatefulWidget {
   final List<SongModel> songs;
@@ -847,102 +848,252 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: cardBg,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isCurrent ? AppColors.accentCyan : cardBorder,
             width: isCurrent ? 1.2 : 1.0,
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Info Lagu
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrowCard = constraints.maxWidth < 240;
+
+            if (isNarrowCard) {
+              // ================= SMARTPHONE / NARROW COLUMN =================
+              // Thumbnail full-width (panjangnya sama dengan card-nya, rasio 16:9)
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    song.songtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          SongCoverThumbnail(
+                            songUrl: song.songurl,
+                            aspectRatio: 16 / 9,
+                            borderRadius: 0,
+                          ),
+                          if (song.songduration != null && song.songduration!.isNotEmpty)
+                            Positioned(
+                              bottom: 4,
+                              right: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.75),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  song.songduration!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 1),
-                  Text(
-                    song.songsinger,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 9,
-                      color: Color(0xFF8EA9C7),
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  // Badges Wrap (responsif tanpa overflow)
-                  Wrap(
-                    spacing: 3,
-                    runSpacing: 2,
-                    children: [
-                      _buildBadge(categoryName, const Color(0xFF334155), const Color(0xFF94A3B8)),
-                      if (song.songnada != null && song.songnada!.isNotEmpty)
-                        _buildBadge(
-                          song.songnada!,
-                          const Color(0xFF0C4A6E),
-                          const Color(0xFF38BDF8),
+
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(7, 6, 7, 7),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                song.songtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                song.songsinger,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 9.5,
+                                  color: Color(0xFF98B8DA),
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Wrap(
+                                spacing: 3,
+                                runSpacing: 2,
+                                children: [
+                                  _buildBadge(categoryName, const Color(0xFF334155), const Color(0xFF94A3B8)),
+                                  if (song.songnada != null && song.songnada!.isNotEmpty)
+                                    _buildBadge(
+                                      song.songnada!,
+                                      const Color(0xFF0C4A6E),
+                                      const Color(0xFF38BDF8),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                    ],
+                        const SizedBox(width: 4),
+
+                        IconButton(
+                          onPressed: () => widget.onPlaySong(song),
+                          tooltip: 'Putar Lagu',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            isCurrent ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                            color: AppColors.accentCyan,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+
+                        IconButton(
+                          onPressed: () {
+                            widget.onAddToQueue(song);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('"${song.songtitle}" ditambahkan ke playlist'),
+                                duration: const Duration(seconds: 1),
+                                behavior: SnackBarBehavior.floating,
+                                backgroundColor: AppColors.primaryElectric,
+                              ),
+                            );
+                          },
+                          tooltip: 'Tambah ke Playlist',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(
+                            Icons.playlist_add_rounded,
+                            color: Color(0xFF85B6DF),
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // ================= WIDE CARD / DESKTOP / TABLET =================
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SongCoverThumbnail(
+                    songUrl: song.songurl,
+                    width: 72,
+                    height: 44,
+                    borderRadius: 6,
+                  ),
+                  const SizedBox(width: 8),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          song.songtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          song.songsinger,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF98B8DA),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Wrap(
+                          spacing: 3,
+                          runSpacing: 2,
+                          children: [
+                            _buildBadge(categoryName, const Color(0xFF334155), const Color(0xFF94A3B8)),
+                            if (song.songnada != null && song.songnada!.isNotEmpty)
+                              _buildBadge(
+                                song.songnada!,
+                                const Color(0xFF0C4A6E),
+                                const Color(0xFF38BDF8),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+
+                  IconButton(
+                    onPressed: () => widget.onPlaySong(song),
+                    tooltip: 'Putar Lagu',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      isCurrent ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                      color: AppColors.accentCyan,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+
+                  IconButton(
+                    onPressed: () {
+                      widget.onAddToQueue(song);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('"${song.songtitle}" ditambahkan ke playlist'),
+                          duration: const Duration(seconds: 1),
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: AppColors.primaryElectric,
+                        ),
+                      );
+                    },
+                    tooltip: 'Tambah ke Playlist',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(
+                      Icons.playlist_add_rounded,
+                      color: Color(0xFF85B6DF),
+                      size: 20,
+                    ),
                   ),
                 ],
               ),
-            ),
-
-            // Tombol Putar Langsung
-            IconButton(
-              onPressed: () => widget.onPlaySong(song),
-              tooltip: 'Putar Lagu',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(
-                Icons.play_arrow_rounded,
-                color: AppColors.accentCyan,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 2),
-
-            // Tombol Tambah ke Playlist
-            IconButton(
-              onPressed: () {
-                widget.onAddToQueue(song);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('"${song.songtitle}" ditambahkan ke playlist'),
-                    duration: const Duration(seconds: 1),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: AppColors.primaryElectric,
-                  ),
-                );
-              },
-              tooltip: 'Tambah ke Playlist',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(
-                Icons.playlist_add_rounded,
-                color: Color(0xFF85B6DF),
-                size: 20,
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
