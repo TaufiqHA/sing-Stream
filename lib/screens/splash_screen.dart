@@ -1,11 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../core/services/api_auth_service.dart';
-import '../core/services/storage_service.dart';
 import '../core/theme/app_colors.dart';
-import '../models/user_model.dart';
-import 'admin/admin_main_layout.dart';
-import 'login_screen.dart';
 import 'user/user_main_layout.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -57,60 +52,23 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _startTimer() {
-    _navTimer = Timer(const Duration(milliseconds: 2500), () async {
+    _navTimer = Timer(const Duration(milliseconds: 2500), () {
       if (!mounted) return;
 
-      Widget destination = const LoginScreen();
-
-      try {
-        final storage = await StorageService.getInstance();
-        final loggedIn = await storage.isLoggedIn();
-        UserModel? user = await storage.getUser();
-
-        if (loggedIn) {
-          try {
-            final authService = ApiAuthService(storageService: storage);
-            final updatedUser = await authService
-                .getProfile()
-                .timeout(const Duration(milliseconds: 2000));
-            if (updatedUser != null) {
-              user = updatedUser;
-            }
-          } catch (_) {
-            // Jika koneksi timeout atau offline, cek apakah sesi lokal masih valid
-            final stillValid = await storage.isLoggedIn();
-            if (!stillValid) {
-              user = null;
-            }
-          }
-        }
-
-        final isUserLoggedIn = await storage.isLoggedIn();
-        if (isUserLoggedIn && user != null) {
-          destination = user.isAdmin
-              ? const AdminMainLayout()
-              : const UserMainLayout();
-        }
-      } catch (_) {
-        destination = const LoginScreen();
-      } finally {
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  destination,
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: child,
-                );
-              },
-              transitionDuration: const Duration(milliseconds: 600),
-            ),
-          );
-        }
-      }
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const UserMainLayout(),
+          transitionsBuilder:
+              (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 600),
+        ),
+      );
     });
   }
 
@@ -189,7 +147,7 @@ class _SplashScreenState extends State<SplashScreen>
                         ],
                       ).createShader(bounds),
                       child: const Text(
-                        'Tomsi Karaoke',
+                        'Sing Stream',
                         style: TextStyle(
                           fontSize: 34,
                           fontWeight: FontWeight.w800,

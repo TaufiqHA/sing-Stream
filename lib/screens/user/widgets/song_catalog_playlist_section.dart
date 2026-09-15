@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/category_model.dart';
@@ -15,6 +16,7 @@ class SongCatalogPlaylistSection extends StatefulWidget {
   final Function(int oldIndex, int newIndex)? onReorderQueue;
   final VoidCallback? onClearQueue;
   final Future<void> Function()? onRefresh;
+  final ValueChanged<String>? onSearch;
   final Axis axis;
 
   const SongCatalogPlaylistSection({
@@ -30,6 +32,7 @@ class SongCatalogPlaylistSection extends StatefulWidget {
     this.onReorderQueue,
     this.onClearQueue,
     this.onRefresh,
+    this.onSearch,
     this.axis = Axis.horizontal,
   });
 
@@ -57,6 +60,17 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
     return count;
   }
 
+  Timer? _searchDebounce;
+
+  void _triggerSearch(String val) {
+    if (widget.onSearch != null) {
+      _searchDebounce?.cancel();
+      _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+        widget.onSearch!(val);
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +81,7 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -264,8 +279,13 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
           child: TextField(
             controller: _searchController,
             style: const TextStyle(color: Colors.white, fontSize: 13),
+            onChanged: _triggerSearch,
+            onSubmitted: (val) {
+              _searchDebounce?.cancel();
+              widget.onSearch?.call(val);
+            },
             decoration: InputDecoration(
-              hintText: 'Cari lagu...',
+              hintText: 'Cari lagu karaoke...',
               hintStyle: const TextStyle(color: Color(0xFF8E9BAE), fontSize: 12),
               prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF6FA4CE), size: 18),
               suffixIcon: _searchController.text.isNotEmpty
@@ -273,7 +293,11 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
                       icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 16),
                       padding: EdgeInsets.zero,
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => _searchController.clear(),
+                      onPressed: () {
+                        _searchController.clear();
+                        _searchDebounce?.cancel();
+                        widget.onSearch?.call('');
+                      },
                     )
                   : null,
               border: InputBorder.none,
@@ -879,6 +903,21 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
                 ],
               ),
             ),
+
+            // Tombol Putar Langsung
+            IconButton(
+              onPressed: () => widget.onPlaySong(song),
+              tooltip: 'Putar Lagu',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                Icons.play_arrow_rounded,
+                color: AppColors.accentCyan,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 2),
 
             // Tombol Tambah ke Playlist
             IconButton(

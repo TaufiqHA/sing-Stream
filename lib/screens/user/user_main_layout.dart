@@ -1,18 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
-import '../../core/services/api_auth_service.dart';
-import '../../core/services/api_category_service.dart';
-import '../../core/services/api_song_service.dart';
 import '../../core/services/category_service.dart';
+import '../../core/services/dummy_category_service.dart';
 import '../../core/services/song_service.dart';
 import '../../core/services/storage_service.dart';
+import '../../core/services/youtube_song_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/youtube_helper.dart';
 import '../../models/category_model.dart';
 import '../../models/song_model.dart';
 import '../../models/user_model.dart';
-import '../login_screen.dart';
 import '../../services/cast/smart_tv_cast_service.dart';
 import 'widgets/cast_device_modal.dart';
 import 'widgets/player_controls.dart';
@@ -78,8 +76,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
   @override
   void initState() {
     super.initState();
-    _songService = widget.songService ?? ApiSongService();
-    _categoryService = widget.categoryService ?? ApiCategoryService();
+    _songService = widget.songService ?? YoutubeSongService(isTestMode: widget.isTestMode);
+    _categoryService = widget.categoryService ?? DummyCategoryService();
     _castService = widget.castService ?? SmartTvCastService(isTestMode: widget.isTestMode);
     _castSubscription = _castService.connectedDeviceStream.listen((_) {
       if (mounted) setState(() {});
@@ -270,6 +268,23 @@ class _UserMainLayoutState extends State<UserMainLayout> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _searchSongs(String query) async {
+    setState(() => _isLoading = true);
+    try {
+      final songs = await _songService.getSongs(search: query);
+      if (mounted) {
+        setState(() {
+          _allSongs = songs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -496,59 +511,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
     });
   }
 
-  Future<void> _handleLogout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceDark,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: AppColors.cardGlassBorder),
-        ),
-        title: const Text(
-          'Konfirmasi Keluar',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Apakah Anda yakin ingin keluar dari Tomsi Karaoke?',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Batal', style: TextStyle(color: AppColors.accentSky)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Keluar', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
 
-    if (confirm == true && mounted) {
-      final authService = ApiAuthService();
-      await authService.logout();
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 500),
-        ),
-      );
-    }
-  }
 
   void _openCastModal(BuildContext context) {
     final videoId = YoutubeHelper.extractVideoId(_currentSong?.songurl);
@@ -644,6 +607,10 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                           setModalState(() {});
                         },
                         onRefresh: _loadData,
+                        onSearch: (val) async {
+                          await _searchSongs(val);
+                          setModalState(() {});
+                        },
                       ),
                     ),
                   ),
@@ -769,6 +736,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                 onReorderQueue: _reorderQueue,
                                 onClearQueue: _clearQueue,
                                 onRefresh: _loadData,
+                                onSearch: _searchSongs,
                               ),
                             ),
                           ],
@@ -843,6 +811,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                 onReorderQueue: _reorderQueue,
                                 onClearQueue: _clearQueue,
                                 onRefresh: _loadData,
+                                onSearch: _searchSongs,
                               ),
                             ),
                           ],
@@ -912,6 +881,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                               onReorderQueue: _reorderQueue,
                               onClearQueue: _clearQueue,
                               onRefresh: _loadData,
+                              onSearch: _searchSongs,
                             ),
                           ),
                         ],
@@ -953,7 +923,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                 const SizedBox(width: 8),
                 const Flexible(
                   child: Text(
-                    'Tomsi Karaoke',
+                    'Sing Stream',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -964,29 +934,6 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                   ),
                 ),
               ],
-            ),
-          ),
-
-          // Logout Button
-          IconButton(
-            onPressed: _handleLogout,
-            tooltip: 'Keluar',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.error.withValues(alpha: 0.3),
-                ),
-              ),
-              child: const Icon(
-                Icons.logout_rounded,
-                color: AppColors.error,
-                size: 16,
-              ),
             ),
           ),
         ],

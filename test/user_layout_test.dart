@@ -5,7 +5,6 @@ import 'package:karaoke_app/core/services/auth_service.dart';
 import 'package:karaoke_app/core/services/dummy_category_service.dart';
 import 'package:karaoke_app/core/services/dummy_song_service.dart';
 import 'package:karaoke_app/models/user_model.dart';
-import 'package:karaoke_app/screens/admin/admin_main_layout.dart';
 import 'package:karaoke_app/screens/login_screen.dart';
 import 'package:karaoke_app/screens/profile/profile_screen.dart';
 import 'package:karaoke_app/screens/user/user_main_layout.dart';
@@ -78,11 +77,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Verifikasi Header (Minimalis tanpa subteks & tanpa tombol cari)
-    expect(find.text('Tomsi Karaoke'), findsOneWidget);
+    expect(find.text('Sing Stream'), findsOneWidget);
     expect(find.text('Ruang Bernyanyi'), findsNothing);
     expect(find.byTooltip('Cari Lagu'), findsNothing);
     expect(find.byTooltip('Manajemen Profil'), findsNothing);
-    expect(find.byTooltip('Keluar'), findsOneWidget);
+    expect(find.byTooltip('Keluar'), findsNothing);
 
     // 2. Verifikasi Sub-widget Utama
     expect(find.byType(PlayerDisplay), findsOneWidget);
@@ -90,7 +89,7 @@ void main() {
     expect(find.byType(SongCatalogPlaylistSection), findsOneWidget);
 
     // 3. Verifikasi Bagian Cari Lagu & Playlist langsung di layar utama
-    expect(find.text('Cari lagu...'), findsOneWidget);
+    expect(find.text('Cari lagu karaoke...'), findsOneWidget);
     expect(find.text('hasil pencarian'), findsOneWidget);
     expect(find.text('playlist'), findsOneWidget);
     expect(find.text('Filter Lagu'), findsOneWidget);
@@ -385,10 +384,9 @@ void main() {
 
     // Verifikasi diarahkan ke UserMainLayout
     expect(find.byType(UserMainLayout), findsOneWidget);
-    expect(find.byType(AdminMainLayout), findsNothing);
   });
 
-  testWidgets('LoginScreen routes admin role to AdminMainLayout', (WidgetTester tester) async {
+  testWidgets('LoginScreen routes admin role to UserMainLayout as unified layout', (WidgetTester tester) async {
     const adminUser = UserModel(
       id: 'usr_adm_1',
       username: 'admin',
@@ -410,9 +408,8 @@ void main() {
     await tester.tap(find.text('Masuk'));
     await tester.pumpAndSettle();
 
-    // Verifikasi diarahkan ke AdminMainLayout
-    expect(find.byType(AdminMainLayout), findsOneWidget);
-    expect(find.byType(UserMainLayout), findsNothing);
+    // Verifikasi diarahkan ke UserMainLayout
+    expect(find.byType(UserMainLayout), findsOneWidget);
   });
 
   testWidgets('UserMainLayout cast to Smart TV modal and connection test', (WidgetTester tester) async {

@@ -69,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         content: const Text(
-          'Apakah Anda yakin ingin keluar dari Tomsi Karaoke?',
+          'Apakah Anda yakin ingin keluar dari Sing Stream?',
           style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [

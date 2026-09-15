@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../core/services/api_auth_service.dart';
 import '../core/services/auth_service.dart';
 import '../core/theme/app_colors.dart';
-import 'admin/admin_main_layout.dart';
 import 'user/user_main_layout.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -74,9 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-        final destination = (response.user?.isAdmin ?? false)
-            ? const AdminMainLayout()
-            : const UserMainLayout();
+        const destination = UserMainLayout();
 
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
@@ -168,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // App Title
                   const Text(
-                    'Tomsi Karaoke',
+                    'Sing Stream',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,

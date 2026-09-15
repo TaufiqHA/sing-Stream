@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/category_model.dart';
@@ -14,6 +15,7 @@ class SongSearchPanel extends StatefulWidget {
   final ValueChanged<int>? onRemoveFromQueue;
   final VoidCallback? onClearQueue;
   final Future<void> Function()? onRefresh;
+  final ValueChanged<String>? onSearch;
 
   const SongSearchPanel({
     super.key,
@@ -27,6 +29,7 @@ class SongSearchPanel extends StatefulWidget {
     this.onRemoveFromQueue,
     this.onClearQueue,
     this.onRefresh,
+    this.onSearch,
   });
 
   @override
@@ -37,6 +40,16 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
   final TextEditingController _searchController = TextEditingController();
   int? _selectedCategoryFilter; // null = Semua
   int _activeTab = 0; // 0 = Katalog Lagu, 1 = Antrean (Queue)
+  Timer? _searchDebounce;
+
+  void _triggerSearch(String val) {
+    if (widget.onSearch != null) {
+      _searchDebounce?.cancel();
+      _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+        widget.onSearch!(val);
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -48,6 +61,7 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -235,14 +249,23 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                 child: TextField(
                   controller: _searchController,
                   style: const TextStyle(color: Colors.white, fontSize: 13),
+                  onChanged: _triggerSearch,
+                  onSubmitted: (val) {
+                    _searchDebounce?.cancel();
+                    widget.onSearch?.call(val);
+                  },
                   decoration: InputDecoration(
-                    hintText: 'Cari lagu...',
+                    hintText: 'Cari lagu karaoke...',
                     hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                     prefixIcon: const Icon(Icons.search_rounded, color: AppColors.accentSky, size: 18),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.close_rounded, color: AppColors.textMuted, size: 16),
-                            onPressed: () => _searchController.clear(),
+                            onPressed: () {
+                              _searchController.clear();
+                              _searchDebounce?.cancel();
+                              widget.onSearch?.call('');
+                            },
                           )
                         : null,
                     filled: true,

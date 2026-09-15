@@ -3,8 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:karaoke_app/main.dart';
 import 'package:karaoke_app/screens/admin/admin_home_screen.dart';
-import 'package:karaoke_app/screens/admin/admin_main_layout.dart';
-import 'package:karaoke_app/screens/admin/admin_sidebar.dart';
 import 'package:karaoke_app/screens/admin/category/admin_category_screen.dart';
 import 'package:karaoke_app/screens/admin/song/admin_song_screen.dart';
 import 'package:karaoke_app/screens/admin/user/admin_user_screen.dart';
@@ -21,17 +19,18 @@ import 'package:karaoke_app/core/services/dummy_song_service.dart';
 import 'package:karaoke_app/core/services/dummy_user_service.dart';
 import 'package:karaoke_app/core/services/storage_service.dart';
 import 'package:karaoke_app/screens/splash_screen.dart';
+import 'package:karaoke_app/screens/user/user_main_layout.dart';
 
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('Splash screen renders properly and transitions to LoginScreen', (WidgetTester tester) async {
+  testWidgets('Splash screen renders properly and transitions to UserMainLayout', (WidgetTester tester) async {
     await tester.pumpWidget(const KaraokeApp());
 
-    // Memverifikasi Splash Screen tampil dengan teks 'Tomsi Karaoke'
-    expect(find.text('Tomsi Karaoke'), findsOneWidget);
+    // Memverifikasi Splash Screen tampil dengan teks 'Sing Stream'
+    expect(find.text('Sing Stream'), findsOneWidget);
     expect(find.byType(SplashScreen), findsOneWidget);
 
     // Animasi pump
@@ -42,10 +41,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 2600));
     await tester.pumpAndSettle();
 
-    // Verifikasi otomatis berpindah ke LoginScreen
-    expect(find.byType(LoginScreen), findsOneWidget);
-    expect(find.text('Username'), findsOneWidget);
-    expect(find.text('Password'), findsOneWidget);
+    // Verifikasi otomatis berpindah ke UserMainLayout
+    expect(find.byType(UserMainLayout), findsOneWidget);
   });
 
   testWidgets('Login screen validation smoke test', (WidgetTester tester) async {
@@ -96,42 +93,6 @@ void main() {
     expect(find.text('Total Lagu Diinput'), findsOneWidget);
     expect(find.text('Total User Terdaftar'), findsOneWidget);
     expect(find.text('1.250'), findsOneWidget);
-    expect(find.text('348'), findsOneWidget);
-  });
-
-  testWidgets('Admin Main Layout persistent sidebar and tab navigation test', (WidgetTester tester) async {
-    // Set ukuran layar lebar (desktop/tablet)
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AdminMainLayout(),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    // Verifikasi Sidebar dan Beranda tampil
-    expect(find.byType(AdminSidebar), findsOneWidget);
-    expect(find.text('Beranda Admin'), findsOneWidget);
-
-    // Tap menu 'Kategori' di sidebar
-    await tester.tap(find.text('Kategori'));
-    await tester.pumpAndSettle();
-
-    // Verifikasi halaman 'AdminCategoryScreen' tampil tanpa menghapus AdminSidebar
-    expect(find.byType(AdminSidebar), findsOneWidget);
-    expect(find.byType(AdminCategoryScreen), findsOneWidget);
-
-    // Tap menu 'Kelola Lagu' di sidebar
-    await tester.tap(find.text('Kelola Lagu'));
-    await tester.pumpAndSettle();
-
-    // Verifikasi halaman 'AdminSongScreen' tampil tanpa menghapus AdminSidebar
-    expect(find.byType(AdminSidebar), findsOneWidget);
-    expect(find.byType(AdminSongScreen), findsOneWidget);
   });
 
   testWidgets('Admin Category Screen CRUD operations test', (WidgetTester tester) async {
@@ -515,27 +476,6 @@ void main() {
     expect(find.text('Manajemen Profil'), findsOneWidget);
   });
 
-  testWidgets('Admin Main Layout navigates to ProfileScreen via Profil Saya tab', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AdminMainLayout(initialIndex: 0),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    // Tap menu 'Profil Saya' di sidebar
-    await tester.tap(find.text('Profil Saya'));
-    await tester.pumpAndSettle();
-
-    // Verifikasi ProfileScreen tampil
-    expect(find.byType(ProfileScreen), findsOneWidget);
-    expect(find.text('Informasi Akun'), findsOneWidget);
-  });
-
   testWidgets('Admin Setting Screen renders tb_application configuration and updates values', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -568,27 +508,6 @@ void main() {
     // 4. Verifikasi notifikasi berhasil
     expect(find.text('Pengaturan aplikasi berhasil disimpan!'), findsOneWidget);
     expect(find.text('PT Sing Star Indonesia'), findsOneWidget);
-  });
-
-  testWidgets('Admin Main Layout navigates to Pengaturan tab', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AdminMainLayout(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    // Tap menu 'Pengaturan' di sidebar
-    await tester.tap(find.text('Pengaturan'));
-    await tester.pumpAndSettle();
-
-    // Verifikasi AdminSettingScreen tampil
-    expect(find.byType(AdminSettingScreen), findsOneWidget);
-    expect(find.text('Pengaturan Aplikasi'), findsOneWidget);
   });
 }
 

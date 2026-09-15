@@ -29,7 +29,7 @@ class KaraokeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Tomsi Karaoke',
+      title: 'Sing Stream',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
