@@ -510,9 +510,6 @@ class _UserMainLayoutState extends State<UserMainLayout> {
 
   void _reorderQueue(int oldIndex, int newIndex) {
     setState(() {
-      if (oldIndex < newIndex) {
-        newIndex -= 1;
-      }
       final song = _queue.removeAt(oldIndex);
       _queue.insert(newIndex, song);
     });

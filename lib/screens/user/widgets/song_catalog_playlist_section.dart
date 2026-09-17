@@ -731,7 +731,7 @@ class _SongCatalogPlaylistSectionState extends State<SongCatalogPlaylistSection>
                     padding: const EdgeInsets.only(bottom: 6),
                     buildDefaultDragHandles: false,
                     itemCount: widget.queue.length,
-                    onReorder: (oldIndex, newIndex) {
+                    onReorderItem: (oldIndex, newIndex) {
                       if (widget.onReorderQueue != null) {
                         widget.onReorderQueue!(oldIndex, newIndex);
                       }

@@ -1,0 +1,8 @@
+# Format key.properties untuk Android Release Signing
+# Salin file ini menjadi 'key.properties' di folder android/ yang sama, lalu sesuaikan isinya.
+# CATATAN: File 'key.properties' asli dan file '*.jks' sudah terdaftar di .gitignore dan tidak boleh di-commit.
+
+keyAlias=upload
+keyPassword=YOUR_KEY_PASSWORD
+storePassword=YOUR_STORE_PASSWORD
+storeFile=../upload-keystore.jks

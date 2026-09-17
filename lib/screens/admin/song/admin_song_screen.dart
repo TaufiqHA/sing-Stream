@@ -279,8 +279,10 @@ class _AdminSongScreenState extends State<AdminSongScreen> {
                             onNadaSelected(created.nada);
                             setParentDialogState(() {});
 
+                            if (!dialogContext.mounted) return;
                             Navigator.of(dialogContext).pop();
 
+                            if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Nada "${created.nada}" berhasil ditambahkan'),
@@ -706,7 +708,7 @@ class _AdminSongScreenState extends State<AdminSongScreen> {
 
                               return DropdownButtonFormField<String>(
                                 key: const Key('nada_dropdown'),
-                                value: matchingItem?.nada ?? '-',
+                                initialValue: matchingItem?.nada ?? '-',
                                 isExpanded: true,
                                 dropdownColor: AppColors.surfaceDark,
                                 icon: const Icon(
