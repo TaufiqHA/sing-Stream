@@ -39,6 +39,10 @@ class _AdminSettingScreenState extends State<AdminSettingScreen> {
   bool _adsActive = true;
   bool _adsBottomActive = true;
 
+  /// Konfigurasi terakhir yang dimuat dari server. Dipakai untuk mempertahankan
+  /// field jenis iklan & Ad Unit ID (yang tidak diedit di layar ini) saat simpan.
+  ApplicationModel? _loadedConfig;
+
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -57,6 +61,7 @@ class _AdminSettingScreenState extends State<AdminSettingScreen> {
       final config = await _applicationService.getApplicationConfig();
       if (mounted) {
         setState(() {
+          _loadedConfig = config;
           _applicationId = config.applicationid;
           _companyController.text = config.applicationcompany;
           _appNameController.text = config.applicationname;
@@ -245,6 +250,12 @@ class _AdminSettingScreenState extends State<AdminSettingScreen> {
       applicationadsactive: _adsActive ? 'Y' : 'N',
       applicationadsbottom: _adsBottomController.text.trim().isEmpty ? null : _adsBottomController.text.trim(),
       applicationadsbottomactive: _adsBottomActive ? 'Y' : 'N',
+      applicationads1type: _loadedConfig?.applicationads1type ?? 'image',
+      applicationads1unit: _loadedConfig?.applicationads1unit,
+      applicationads2type: _loadedConfig?.applicationads2type ?? 'image',
+      applicationads2unit: _loadedConfig?.applicationads2unit,
+      applicationadsbottomtype: _loadedConfig?.applicationadsbottomtype ?? 'image',
+      applicationadsbottomunit: _loadedConfig?.applicationadsbottomunit,
     );
 
     try {

@@ -12,3 +12,7 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Backup kredensial (berisi key.properties, keystore, local.properties)
+credentials-backup.zip
+CREDENTIALS.txt
