@@ -100,4 +100,4 @@ flutter build apk --release --split-per-abi
 
 - **ProGuard / R8**: Sudah dikonfigurasi di `android/app/proguard-rules.pro` untuk menjaga kelancaran Google Play Services Cast, WebView, dan YouTube Player.
 - **Cleartext Traffic**: Diaktifkan di `AndroidManifest.xml` (`android:usesCleartextTraffic="true"`) agar aplikasi dapat berkomunikasi dengan endpoint backend HTTP (`http://tomsikaraoke.xyz`).
-- **Permissions**: Izin internet, WiFi state, Google Cast, dan media gallery sudah terdaftar dengan benar di `android/app/src/main/AndroidManifest.xml`.
+- **Permissions**: Izin internet, WiFi state, dan Google Cast sudah terdaftar dengan benar di `android/app/src/main/AndroidManifest.xml`. Izin media (`READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO`/`READ_EXTERNAL_STORAGE`) sengaja **tidak** didaftarkan karena pemilihan foto/video memakai Android Photo Picker yang tidak memerlukan izin, sesuai kebijakan Google Play.

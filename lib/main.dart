@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'core/theme/app_colors.dart';
 import 'screens/splash_screen.dart';
 import 'services/ad_manager.dart';
@@ -10,6 +12,14 @@ import 'services/cast/smart_tv_cast_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Aktifkan Android Photo Picker pada semua versi Android yang didukung.
+  // Pemilih foto bawaan sistem ini tidak memerlukan izin penyimpanan
+  // (READ_MEDIA_IMAGES/READ_MEDIA_VIDEO), sesuai kebijakan Google Play.
+  final imagePickerPlatform = ImagePickerPlatform.instance;
+  if (imagePickerPlatform is ImagePickerAndroid) {
+    imagePickerPlatform.useAndroidPhotoPicker = true;
+  }
 
   // Initialize Google Cast context
   await SmartTvCastService.initGoogleCastContext();
