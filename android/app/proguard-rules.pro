@@ -11,6 +11,17 @@
 -keep interface com.google.android.gms.cast.** { *; }
 -keep class com.felnanuke.google_cast.** { *; }
 
+# AndroidX Room / WorkManager
+# Room membuat implementasi database (mis. WorkDatabase_Impl) lewat reflection
+# dengan memanggil constructor tanpa argumen. R8 menghapus constructor itu di
+# build release sehingga muncul crash:
+#   "Failed to create an instance of androidx.work.impl.WorkDatabase"
+# WorkManager ditarik secara transitif oleh SDK Ads/Cast dan diinisialisasi
+# otomatis lewat androidx.startup pada saat proses aplikasi dimulai.
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
+-keep class androidx.work.impl.WorkDatabase_Impl { *; }
+-dontwarn androidx.room.paging.**
+
 # WebView & JavaScript interfaces (digunakan oleh youtube_player_iframe)
 -keepattributes JavascriptInterface
 -keepclassmembers class * {
