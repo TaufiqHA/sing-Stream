@@ -20,13 +20,11 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:hardwareAccelerated="true">
-        <!-- AdMob Application ID.
-             CATATAN: nilai di bawah adalah App ID TEST resmi Google. Ganti dengan
-             App ID AdMob produksi aplikasi sebelum dirilis. Ad Unit ID diisi dari
-             panel admin website. -->
+        <!-- AdMob Application ID (produksi). Ad Unit ID diisi dari panel admin
+             website, bukan dari manifest ini. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
+            android:value="ca-app-pub-4526658832356207~8070065196"/>
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="com.felnanuke.google_cast.GoogleCastOptionsProvider" />
