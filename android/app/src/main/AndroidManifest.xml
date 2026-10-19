@@ -3,7 +3,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Izin FOREGROUND_SERVICE_MEDIA_PLAYBACK sengaja TIDAK dideklarasikan.
+         Aplikasi tidak menjalankan foreground service pemutaran media (tidak ada
+         background audio maupun notifikasi media Cast), sehingga izin ini tidak
+         terpakai dan hanya memicu kewajiban deklarasi "Izin layanan latar depan"
+         beserta video demo di Konsol Play. -->
     <!-- AdMob (Google Mobile Ads) memakai Advertising ID. Izin ini dideklarasikan
          eksplisit agar Konsol Play mendeteksinya dengan benar sesuai "Pernyataan
          ID iklan", di samping deklarasi yang dibawa library google_mobile_ads. -->
@@ -28,10 +32,6 @@
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="com.felnanuke.google_cast.GoogleCastOptionsProvider" />
-        <service
-            android:name="com.google.android.gms.cast.framework.media.MediaNotificationService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
