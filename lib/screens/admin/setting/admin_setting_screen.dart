@@ -252,10 +252,13 @@ class _AdminSettingScreenState extends State<AdminSettingScreen> {
       applicationadsbottomactive: _adsBottomActive ? 'Y' : 'N',
       applicationads1type: _loadedConfig?.applicationads1type ?? 'image',
       applicationads1unit: _loadedConfig?.applicationads1unit,
+      applicationads1clickurl: _loadedConfig?.applicationads1clickurl,
       applicationads2type: _loadedConfig?.applicationads2type ?? 'image',
       applicationads2unit: _loadedConfig?.applicationads2unit,
+      applicationads2clickurl: _loadedConfig?.applicationads2clickurl,
       applicationadsbottomtype: _loadedConfig?.applicationadsbottomtype ?? 'image',
       applicationadsbottomunit: _loadedConfig?.applicationadsbottomunit,
+      applicationadsbottomclickurl: _loadedConfig?.applicationadsbottomclickurl,
     );
 
     try {

@@ -46,6 +46,8 @@ dependencies:
   youtube_explode_dart: ^2.3.6
   # Iklan AdMob (banner/native/full-screen) — hanya Android/iOS.
   google_mobile_ads: ^9.1.0
+  # Membuka URL tujuan banner iklan di browser eksternal.
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

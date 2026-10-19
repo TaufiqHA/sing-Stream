@@ -34,9 +34,12 @@ void main() {
               'applicationcompany': 'PT Karaoke Digital Nusantara',
               'applicationname': 'Karaoke Family Station',
               'applicationads1': 'https://storage.example.com/ads/banner1.jpg',
+              'applicationads1clickurl': 'https://example.com/promo-slot-1',
               'applicationads2': 'https://storage.example.com/ads/banner2.jpg',
+              'applicationads2clickurl': 'https://example.com/promo-slot-2',
               'applicationadsactive': 'Y',
               'applicationadsbottom': 'https://storage.example.com/ads/banner_bottom.jpg',
+              'applicationadsbottomclickurl': 'https://example.com/promo-footer',
               'applicationadsbottomactive': 'Y',
               'created_at': '2026-08-31T17:00:00.000000Z',
               'updated_at': '2026-08-31T17:00:00.000000Z',
@@ -58,6 +61,9 @@ void main() {
       expect(config.applicationcompany, 'PT Karaoke Digital Nusantara');
       expect(config.applicationname, 'Karaoke Family Station');
       expect(config.applicationads1, 'https://storage.example.com/ads/banner1.jpg');
+      expect(config.applicationads1clickurl, 'https://example.com/promo-slot-1');
+      expect(config.applicationads2clickurl, 'https://example.com/promo-slot-2');
+      expect(config.applicationadsbottomclickurl, 'https://example.com/promo-footer');
       expect(config.isAdsActive, isTrue);
       expect(config.isAdsBottomActive, isTrue);
     });

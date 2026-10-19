@@ -59,10 +59,14 @@ class AdSlotConfig {
   /// Ad Unit ID AdMob (dipakai bila [format] adalah salah satu `admob*`).
   final String? unit;
 
+  /// URL tujuan saat banner gambar diklik (opsional, dari panel admin web).
+  final String? clickUrl;
+
   const AdSlotConfig({
     this.image,
     this.format = AdFormat.image,
     this.unit,
+    this.clickUrl,
   });
 
   bool get isImage => format == AdFormat.image;
@@ -79,6 +83,17 @@ class AdSlotConfig {
   bool get isFullScreen => isInterstitial || isAppOpen || isReward;
 
   bool get hasUnit => unit != null && unit!.trim().isNotEmpty;
+
+  /// True bila banner gambar punya URL tujuan klik yang valid.
+  bool get hasClickUrl {
+    final value = clickUrl?.trim() ?? '';
+    if (value.isEmpty) return false;
+
+    final uri = Uri.tryParse(value);
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
+  }
 
   /// True bila iklan AdMob dan Ad Unit ID tersedia.
   bool get isAdMob => format != AdFormat.image && hasUnit;
@@ -97,10 +112,13 @@ class ApplicationModel {
   // Konfigurasi jenis iklan + Ad Unit per slot (dari panel admin website).
   final String applicationads1type;
   final String? applicationads1unit;
+  final String? applicationads1clickurl;
   final String applicationads2type;
   final String? applicationads2unit;
+  final String? applicationads2clickurl;
   final String applicationadsbottomtype;
   final String? applicationadsbottomunit;
+  final String? applicationadsbottomclickurl;
 
   const ApplicationModel({
     required this.applicationid,
@@ -113,10 +131,13 @@ class ApplicationModel {
     this.applicationadsbottomactive = 'Y',
     this.applicationads1type = 'image',
     this.applicationads1unit,
+    this.applicationads1clickurl,
     this.applicationads2type = 'image',
     this.applicationads2unit,
+    this.applicationads2clickurl,
     this.applicationadsbottomtype = 'image',
     this.applicationadsbottomunit,
+    this.applicationadsbottomclickurl,
   });
 
   bool get isAdsActive => applicationadsactive.toUpperCase() == 'Y';
@@ -124,24 +145,27 @@ class ApplicationModel {
 
   /// Slot iklan 1 (Header / Atas).
   AdSlotConfig get ads1Config => AdSlotConfig(
-        image: applicationads1,
-        format: AdFormat.fromRaw(applicationads1type),
-        unit: applicationads1unit,
-      );
+    image: applicationads1,
+    format: AdFormat.fromRaw(applicationads1type),
+    unit: applicationads1unit,
+    clickUrl: applicationads1clickurl,
+  );
 
   /// Slot iklan 2 (Konten).
   AdSlotConfig get ads2Config => AdSlotConfig(
-        image: applicationads2,
-        format: AdFormat.fromRaw(applicationads2type),
-        unit: applicationads2unit,
-      );
+    image: applicationads2,
+    format: AdFormat.fromRaw(applicationads2type),
+    unit: applicationads2unit,
+    clickUrl: applicationads2clickurl,
+  );
 
   /// Slot iklan bawah (Footer).
   AdSlotConfig get adsBottomConfig => AdSlotConfig(
-        image: applicationadsbottom,
-        format: AdFormat.fromRaw(applicationadsbottomtype),
-        unit: applicationadsbottomunit,
-      );
+    image: applicationadsbottom,
+    format: AdFormat.fromRaw(applicationadsbottomtype),
+    unit: applicationadsbottomunit,
+    clickUrl: applicationadsbottomclickurl,
+  );
 
   ApplicationModel copyWith({
     int? applicationid,
@@ -154,10 +178,13 @@ class ApplicationModel {
     String? applicationadsbottomactive,
     String? applicationads1type,
     String? applicationads1unit,
+    String? applicationads1clickurl,
     String? applicationads2type,
     String? applicationads2unit,
+    String? applicationads2clickurl,
     String? applicationadsbottomtype,
     String? applicationadsbottomunit,
+    String? applicationadsbottomclickurl,
   }) {
     return ApplicationModel(
       applicationid: applicationid ?? this.applicationid,
@@ -167,13 +194,22 @@ class ApplicationModel {
       applicationads2: applicationads2 ?? this.applicationads2,
       applicationadsactive: applicationadsactive ?? this.applicationadsactive,
       applicationadsbottom: applicationadsbottom ?? this.applicationadsbottom,
-      applicationadsbottomactive: applicationadsbottomactive ?? this.applicationadsbottomactive,
+      applicationadsbottomactive:
+          applicationadsbottomactive ?? this.applicationadsbottomactive,
       applicationads1type: applicationads1type ?? this.applicationads1type,
       applicationads1unit: applicationads1unit ?? this.applicationads1unit,
+      applicationads1clickurl:
+          applicationads1clickurl ?? this.applicationads1clickurl,
       applicationads2type: applicationads2type ?? this.applicationads2type,
       applicationads2unit: applicationads2unit ?? this.applicationads2unit,
-      applicationadsbottomtype: applicationadsbottomtype ?? this.applicationadsbottomtype,
-      applicationadsbottomunit: applicationadsbottomunit ?? this.applicationadsbottomunit,
+      applicationads2clickurl:
+          applicationads2clickurl ?? this.applicationads2clickurl,
+      applicationadsbottomtype:
+          applicationadsbottomtype ?? this.applicationadsbottomtype,
+      applicationadsbottomunit:
+          applicationadsbottomunit ?? this.applicationadsbottomunit,
+      applicationadsbottomclickurl:
+          applicationadsbottomclickurl ?? this.applicationadsbottomclickurl,
     );
   }
 
@@ -188,13 +224,19 @@ class ApplicationModel {
       applicationads2: json['applicationads2'] as String?,
       applicationadsactive: json['applicationadsactive'] as String? ?? 'Y',
       applicationadsbottom: json['applicationadsbottom'] as String?,
-      applicationadsbottomactive: json['applicationadsbottomactive'] as String? ?? 'Y',
+      applicationadsbottomactive:
+          json['applicationadsbottomactive'] as String? ?? 'Y',
       applicationads1type: json['applicationads1type'] as String? ?? 'image',
       applicationads1unit: json['applicationads1unit'] as String?,
+      applicationads1clickurl: json['applicationads1clickurl'] as String?,
       applicationads2type: json['applicationads2type'] as String? ?? 'image',
       applicationads2unit: json['applicationads2unit'] as String?,
-      applicationadsbottomtype: json['applicationadsbottomtype'] as String? ?? 'image',
+      applicationads2clickurl: json['applicationads2clickurl'] as String?,
+      applicationadsbottomtype:
+          json['applicationadsbottomtype'] as String? ?? 'image',
       applicationadsbottomunit: json['applicationadsbottomunit'] as String?,
+      applicationadsbottomclickurl:
+          json['applicationadsbottomclickurl'] as String?,
     );
   }
 
@@ -210,10 +252,13 @@ class ApplicationModel {
       'applicationadsbottomactive': applicationadsbottomactive,
       'applicationads1type': applicationads1type,
       'applicationads1unit': applicationads1unit,
+      'applicationads1clickurl': applicationads1clickurl,
       'applicationads2type': applicationads2type,
       'applicationads2unit': applicationads2unit,
+      'applicationads2clickurl': applicationads2clickurl,
       'applicationadsbottomtype': applicationadsbottomtype,
       'applicationadsbottomunit': applicationadsbottomunit,
+      'applicationadsbottomclickurl': applicationadsbottomclickurl,
     };
   }
 }
