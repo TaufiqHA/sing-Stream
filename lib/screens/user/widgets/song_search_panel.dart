@@ -1,9 +1,13 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../models/category_model.dart';
+import '../../../models/song_filter.dart';
 import '../../../models/song_model.dart';
 import 'song_cover_thumbnail.dart';
+import 'song_filter_dropdown.dart';
 
 class SongSearchPanel extends StatefulWidget {
   final List<SongModel> songs;
@@ -16,7 +20,9 @@ class SongSearchPanel extends StatefulWidget {
   final ValueChanged<int>? onRemoveFromQueue;
   final VoidCallback? onClearQueue;
   final Future<void> Function()? onRefresh;
-  final ValueChanged<String>? onSearch;
+  final void Function(String query, SongFilter filter)? onSearch;
+  final SongFilter selectedFilter;
+  final ValueChanged<SongFilter>? onFilterChanged;
 
   const SongSearchPanel({
     super.key,
@@ -31,6 +37,8 @@ class SongSearchPanel extends StatefulWidget {
     this.onClearQueue,
     this.onRefresh,
     this.onSearch,
+    this.selectedFilter = SongFilter.karaoke,
+    this.onFilterChanged,
   });
 
   @override
@@ -39,7 +47,6 @@ class SongSearchPanel extends StatefulWidget {
 
 class _SongSearchPanelState extends State<SongSearchPanel> {
   final TextEditingController _searchController = TextEditingController();
-  int? _selectedCategoryFilter; // null = Semua
   int _activeTab = 0; // 0 = Katalog Lagu, 1 = Antrean (Queue)
   Timer? _searchDebounce;
 
@@ -47,7 +54,7 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
     if (widget.onSearch != null) {
       _searchDebounce?.cancel();
       _searchDebounce = Timer(const Duration(milliseconds: 500), () {
-        widget.onSearch!(val);
+        widget.onSearch!(val, widget.selectedFilter);
       });
     }
   }
@@ -90,14 +97,9 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
   List<SongModel> get _filteredSongs {
     final query = _searchController.text.trim().toLowerCase();
     return widget.songs.where((song) {
-      final matchesQuery = query.isEmpty ||
+      return query.isEmpty ||
           song.songtitle.toLowerCase().contains(query) ||
           song.songsinger.toLowerCase().contains(query);
-
-      final matchesCategory = _selectedCategoryFilter == null ||
-          song.songcategory == _selectedCategoryFilter;
-
-      return matchesQuery && matchesCategory;
     }).toList();
   }
 
@@ -118,7 +120,9 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.cardGlassBorder, width: 1)),
+              border: Border(
+                bottom: BorderSide(color: AppColors.cardGlassBorder, width: 1),
+              ),
             ),
             child: Row(
               children: [
@@ -150,7 +154,9 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                           Icon(
                             Icons.library_music_rounded,
                             size: 16,
-                            color: _activeTab == 0 ? AppColors.accentLight : AppColors.textMuted,
+                            color: _activeTab == 0
+                                ? AppColors.accentLight
+                                : AppColors.textMuted,
                           ),
                           const SizedBox(width: 6),
                           Flexible(
@@ -160,8 +166,12 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                               maxLines: 1,
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: _activeTab == 0 ? FontWeight.bold : FontWeight.w500,
-                                color: _activeTab == 0 ? Colors.white : AppColors.textMuted,
+                                fontWeight: _activeTab == 0
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: _activeTab == 0
+                                    ? Colors.white
+                                    : AppColors.textMuted,
                               ),
                             ),
                           ),
@@ -200,7 +210,9 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                           Icon(
                             Icons.queue_music_rounded,
                             size: 16,
-                            color: _activeTab == 1 ? AppColors.accentLight : AppColors.textMuted,
+                            color: _activeTab == 1
+                                ? AppColors.accentLight
+                                : AppColors.textMuted,
                           ),
                           const SizedBox(width: 6),
                           Flexible(
@@ -210,8 +222,12 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                               maxLines: 1,
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: _activeTab == 1 ? FontWeight.bold : FontWeight.w500,
-                                color: _activeTab == 1 ? Colors.white : AppColors.textMuted,
+                                fontWeight: _activeTab == 1
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: _activeTab == 1
+                                    ? Colors.white
+                                    : AppColors.textMuted,
                               ),
                             ),
                           ),
@@ -253,36 +269,59 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                   onChanged: _triggerSearch,
                   onSubmitted: (val) {
                     _searchDebounce?.cancel();
-                    widget.onSearch?.call(val);
+                    widget.onSearch?.call(val, widget.selectedFilter);
                   },
                   decoration: InputDecoration(
-                    hintText: 'Cari lagu karaoke...',
-                    hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.accentSky, size: 18),
+                    hintText: widget.selectedFilter.isKaraoke
+                        ? 'Cari lagu karaoke...'
+                        : 'Cari lagu non karaoke...',
+                    hintStyle: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 12,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.accentSky,
+                      size: 18,
+                    ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.close_rounded, color: AppColors.textMuted, size: 16),
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: AppColors.textMuted,
+                              size: 16,
+                            ),
                             onPressed: () {
                               _searchController.clear();
                               _searchDebounce?.cancel();
-                              widget.onSearch?.call('');
+                              widget.onSearch?.call('', widget.selectedFilter);
                             },
                           )
                         : null,
                     filled: true,
                     fillColor: AppColors.inputBackground,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 0,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.cardGlassBorder),
+                      borderSide: const BorderSide(
+                        color: AppColors.cardGlassBorder,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.cardGlassBorder),
+                      borderSide: const BorderSide(
+                        color: AppColors.cardGlassBorder,
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.accentCyan, width: 1.2),
+                      borderSide: const BorderSide(
+                        color: AppColors.accentCyan,
+                        width: 1.2,
+                      ),
                     ),
                   ),
                 ),
@@ -290,71 +329,12 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
 
               const SizedBox(height: 6),
 
-              // Category Choice Chips
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    ChoiceChip(
-                      label: const Text('Semua'),
-                      selected: _selectedCategoryFilter == null,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() {
-                            _selectedCategoryFilter = null;
-                          });
-                        }
-                      },
-                      selectedColor: AppColors.primaryElectric,
-                      backgroundColor: AppColors.cardGlass,
-                      labelStyle: TextStyle(
-                        fontSize: 11,
-                        fontWeight: _selectedCategoryFilter == null ? FontWeight.bold : FontWeight.normal,
-                        color: _selectedCategoryFilter == null ? Colors.white : AppColors.textSecondary,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: _selectedCategoryFilter == null
-                              ? AppColors.accentCyan
-                              : AppColors.cardGlassBorder,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    ...widget.categories.map((cat) {
-                      final catId = _parseCategoryId(cat.id);
-                      final isSelected = _selectedCategoryFilter == catId;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6.0),
-                        child: ChoiceChip(
-                          label: Text(cat.name),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedCategoryFilter = selected ? catId : null;
-                            });
-                          },
-                          selectedColor: AppColors.primaryElectric,
-                          backgroundColor: AppColors.cardGlass,
-                          labelStyle: TextStyle(
-                            fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? Colors.white : AppColors.textSecondary,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? AppColors.accentCyan
-                                  : AppColors.cardGlassBorder,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
+              // Pilihan jenis lagu: Karaoke / Non Karaoke
+              SongFilterDropdown(
+                selectedFilter: widget.selectedFilter,
+                onChanged: widget.onFilterChanged,
+                backgroundColor: AppColors.inputBackground,
+                borderColor: AppColors.cardGlassBorder,
               ),
             ],
           ),
@@ -367,213 +347,249 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
           child: widget.isLoading
               ? const Center(
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentCyan),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.accentCyan,
+                    ),
                   ),
                 )
               : filtered.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.music_off_rounded,
-                            size: 40,
-                            color: AppColors.accentSky.withValues(alpha: 0.3),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Lagu tidak ditemukan',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.music_off_rounded,
+                        size: 40,
+                        color: AppColors.accentSky.withValues(alpha: 0.3),
                       ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: widget.onRefresh ?? () async {},
-                      color: AppColors.accentCyan,
-                      backgroundColor: AppColors.surfaceDark,
-                      child: ListView.separated(
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Lagu tidak ditemukan',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: widget.onRefresh ?? () async {},
+                  color: AppColors.accentCyan,
+                  backgroundColor: AppColors.surfaceDark,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: filtered.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final song = filtered[index];
+                      final isCurrentlyPlaying =
+                          widget.currentPlayingSong?.songid == song.songid;
+                      final categoryName = _getCategoryName(
+                        song.songcategory,
+                        embeddedCategory: song.category,
+                      );
+
+                      return Container(
                         padding: const EdgeInsets.all(12),
-                        itemCount: filtered.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final song = filtered[index];
-                          final isCurrentlyPlaying = widget.currentPlayingSong?.songid == song.songid;
-                          final categoryName = _getCategoryName(
-                            song.songcategory,
-                            embeddedCategory: song.category,
-                          );
-
-                          return Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isCurrentlyPlaying
-                                  ? AppColors.primaryElectric.withValues(alpha: 0.25)
-                                  : AppColors.cardGlass,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isCurrentlyPlaying
-                                    ? AppColors.accentCyan
-                                    : AppColors.cardGlassBorder,
-                                width: isCurrentlyPlaying ? 1.4 : 0.8,
-                              ),
+                        decoration: BoxDecoration(
+                          color: isCurrentlyPlaying
+                              ? AppColors.primaryElectric.withValues(
+                                  alpha: 0.25,
+                                )
+                              : AppColors.cardGlass,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isCurrentlyPlaying
+                                ? AppColors.accentCyan
+                                : AppColors.cardGlassBorder,
+                            width: isCurrentlyPlaying ? 1.4 : 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            // Cover Video / Thumbnail
+                            SongCoverThumbnail(
+                              songUrl: song.songurl,
+                              width: 68,
+                              height: 44,
+                              borderRadius: 8,
                             ),
-                            child: Row(
-                              children: [
-                                // Cover Video / Thumbnail
-                                SongCoverThumbnail(
-                                  songUrl: song.songurl,
-                                  width: 68,
-                                  height: 44,
-                                  borderRadius: 8,
-                                ),
-                                const SizedBox(width: 10),
+                            const SizedBox(width: 10),
 
-                                // Title & Details
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                            // Title & Details
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    song.songtitle,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: isCurrentlyPlaying
+                                          ? AppColors.accentCyan
+                                          : Colors.white,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    song.songsinger,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.accentSky,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+
+                                  // Badges (Category & Nada)
+                                  Wrap(
+                                    spacing: 4,
+                                    runSpacing: 2,
                                     children: [
-                                      Text(
-                                        song.songtitle,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: isCurrentlyPlaying ? AppColors.accentCyan : Colors.white,
-                                          height: 1.25,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 5,
+                                          vertical: 1,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.08,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          categoryName,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: AppColors.textSecondary,
+                                          ),
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        song.songsinger,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.accentSky,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-
-                                      // Badges (Category & Nada)
-                                      Wrap(
-                                        spacing: 4,
-                                        runSpacing: 2,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withValues(alpha: 0.08),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              categoryName,
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.textSecondary,
-                                              ),
+                                      if (song.songnada != null &&
+                                          song.songnada!.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 1,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                song.songnada!.toLowerCase() ==
+                                                    'wanita'
+                                                ? const Color(0xFFFF4081)
+                                                      .withValues(alpha: 0.15)
+                                                : AppColors.primaryElectric
+                                                      .withValues(alpha: 0.2),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
                                             ),
                                           ),
-                                          if (song.songnada != null && song.songnada!.isNotEmpty)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                              decoration: BoxDecoration(
-                                                color: song.songnada!.toLowerCase() == 'wanita'
-                                                    ? const Color(0xFFFF4081).withValues(alpha: 0.15)
-                                                    : AppColors.primaryElectric.withValues(alpha: 0.2),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                song.songnada!,
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: song.songnada!.toLowerCase() == 'wanita'
-                                                      ? const Color(0xFFFF80AB)
-                                                      : AppColors.accentCyan,
-                                                ),
-                                              ),
+                                          child: Text(
+                                            song.songnada!,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color:
+                                                  song.songnada!
+                                                          .toLowerCase() ==
+                                                      'wanita'
+                                                  ? const Color(0xFFFF80AB)
+                                                  : AppColors.accentCyan,
                                             ),
-                                          if (song.songduration != null && song.songduration!.isNotEmpty)
-                                            Padding(
-                                              padding: const EdgeInsets.only(left: 2.0),
-                                              child: Text(
-                                                song.songduration!,
-                                                style: const TextStyle(
-                                                  fontSize: 10,
-                                                  color: AppColors.textMuted,
-                                                ),
-                                              ),
+                                          ),
+                                        ),
+                                      if (song.songduration != null &&
+                                          song.songduration!.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 2.0,
+                                          ),
+                                          child: Text(
+                                            song.songduration!,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: AppColors.textMuted,
                                             ),
-                                        ],
-                                      ),
+                                          ),
+                                        ),
                                     ],
                                   ),
-                                ),
-
-                                const SizedBox(width: 8),
-
-                                // Action 1: Add to Queue button
-                                IconButton(
-                                  onPressed: () {
-                                    widget.onAddToQueue(song);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('"${song.songtitle}" ditambahkan ke antrean'),
-                                        behavior: SnackBarBehavior.floating,
-                                        duration: const Duration(seconds: 1),
-                                        backgroundColor: AppColors.primaryElectric,
-                                      ),
-                                    );
-                                  },
-                                  tooltip: 'Tambah ke Antrean',
-                                  visualDensity: VisualDensity.compact,
-                                  icon: const Icon(
-                                    Icons.playlist_add_rounded,
-                                    color: AppColors.accentSky,
-                                    size: 22,
-                                  ),
-                                ),
-
-                                // Action 2: Putar Sekarang Button
-                                ElevatedButton.icon(
-                                  onPressed: () => widget.onPlaySong(song),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: isCurrentlyPlaying
-                                        ? AppColors.primaryElectric
-                                        : AppColors.primaryRoyal,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    visualDensity: VisualDensity.compact,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  icon: Icon(
-                                    isCurrentlyPlaying
-                                        ? Icons.refresh_rounded
-                                        : Icons.play_arrow_rounded,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                  label: Text(
-                                    isCurrentlyPlaying ? 'Putar Ulang' : 'Putar',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
+
+                            const SizedBox(width: 8),
+
+                            // Action 1: Add to Queue button
+                            IconButton(
+                              onPressed: () {
+                                widget.onAddToQueue(song);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '"${song.songtitle}" ditambahkan ke antrean',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 1),
+                                    backgroundColor: AppColors.primaryElectric,
+                                  ),
+                                );
+                              },
+                              tooltip: 'Tambah ke Antrean',
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.playlist_add_rounded,
+                                color: AppColors.accentSky,
+                                size: 22,
+                              ),
+                            ),
+
+                            // Action 2: Putar Sekarang Button
+                            ElevatedButton.icon(
+                              onPressed: () => widget.onPlaySong(song),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isCurrentlyPlaying
+                                    ? AppColors.primaryElectric
+                                    : AppColors.primaryRoyal,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              icon: Icon(
+                                isCurrentlyPlaying
+                                    ? Icons.refresh_rounded
+                                    : Icons.play_arrow_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              label: Text(
+                                isCurrentlyPlaying ? 'Putar Ulang' : 'Putar',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
         ),
       ],
     );
@@ -607,10 +623,7 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
               const Text(
                 'Pilih lagu dari Katalog Lagu dan tekan tombol (+) antre untuk menambahkan lagu berikutnya.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
-                ),
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
             ],
           ),
@@ -641,10 +654,17 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                 TextButton.icon(
                   onPressed: widget.onClearQueue,
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     visualDensity: VisualDensity.compact,
                   ),
-                  icon: const Icon(Icons.delete_sweep_rounded, size: 16, color: AppColors.error),
+                  icon: const Icon(
+                    Icons.delete_sweep_rounded,
+                    size: 16,
+                    color: AppColors.error,
+                  ),
                   label: const Text(
                     'Kosongkan',
                     style: TextStyle(
@@ -674,7 +694,10 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                 decoration: BoxDecoration(
                   color: AppColors.cardGlass,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.cardGlassBorder, width: 0.8),
+                  border: Border.all(
+                    color: AppColors.cardGlassBorder,
+                    width: 0.8,
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -683,7 +706,9 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryElectric.withValues(alpha: 0.25),
+                        color: AppColors.primaryElectric.withValues(
+                          alpha: 0.25,
+                        ),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Center(
@@ -730,7 +755,11 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
 
                     // Play Now button
                     IconButton(
-                      icon: const Icon(Icons.play_arrow_rounded, color: AppColors.accentCyan, size: 22),
+                      icon: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: AppColors.accentCyan,
+                        size: 22,
+                      ),
                       tooltip: 'Putar Sekarang',
                       visualDensity: VisualDensity.compact,
                       onPressed: () {
@@ -741,7 +770,11 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
 
                     // Remove from queue button
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: AppColors.error, size: 18),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: AppColors.error,
+                        size: 18,
+                      ),
                       tooltip: 'Hapus dari Antrean',
                       visualDensity: VisualDensity.compact,
                       onPressed: () => widget.onRemoveFromQueue?.call(index),

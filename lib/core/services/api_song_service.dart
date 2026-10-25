@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
 import '../../models/song_model.dart';
 import 'song_service.dart';
@@ -11,12 +13,9 @@ class ApiSongService implements SongService {
   final StorageService? storageService;
   final String? _customBaseUrl;
 
-  ApiSongService({
-    http.Client? client,
-    this.storageService,
-    String? baseUrl,
-  })  : _client = client ?? http.Client(),
-        _customBaseUrl = baseUrl;
+  ApiSongService({http.Client? client, this.storageService, String? baseUrl})
+    : _client = client ?? http.Client(),
+      _customBaseUrl = baseUrl;
 
   String get baseUrl {
     final custom = _customBaseUrl;
@@ -36,7 +35,11 @@ class ApiSongService implements SongService {
   }
 
   @override
-  Future<List<SongModel>> getSongs({String? search, int? categoryId}) async {
+  Future<List<SongModel>> getSongs({
+    String? search,
+    int? categoryId,
+    bool? isKaraoke,
+  }) async {
     final queryParams = <String>[];
     if (search != null && search.trim().isNotEmpty) {
       queryParams.add('search=${Uri.encodeComponent(search.trim())}');
@@ -45,7 +48,9 @@ class ApiSongService implements SongService {
       queryParams.add('songcategory=$categoryId');
     }
 
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+    final queryString = queryParams.isNotEmpty
+        ? '?${queryParams.join('&')}'
+        : '';
     final url = Uri.parse('$baseUrl/songs$queryString');
 
     try {
@@ -63,9 +68,11 @@ class ApiSongService implements SongService {
         final Map<String, dynamic> data = _parseResponseBody(response.body);
         final rawList = data['data'];
         if (rawList is List) {
-          return rawList
+          final songs = rawList
               .map((item) => SongModel.fromJson(item as Map<String, dynamic>))
               .toList();
+          if (isKaraoke == null) return songs;
+          return songs.where((song) => song.isKaraoke == isKaraoke).toList();
         }
         return [];
       } else {
@@ -120,7 +127,9 @@ class ApiSongService implements SongService {
   }) async {
     final token = await _getToken();
     if (token == null || token.isEmpty) {
-      throw Exception('Sesi login tidak ditemukan. Harap login terlebih dahulu.');
+      throw Exception(
+        'Sesi login tidak ditemukan. Harap login terlebih dahulu.',
+      );
     }
 
     final url = Uri.parse('$baseUrl/songs');
@@ -183,7 +192,9 @@ class ApiSongService implements SongService {
   Future<SongModel> updateSong(SongModel song) async {
     final token = await _getToken();
     if (token == null || token.isEmpty) {
-      throw Exception('Sesi login tidak ditemukan. Harap login terlebih dahulu.');
+      throw Exception(
+        'Sesi login tidak ditemukan. Harap login terlebih dahulu.',
+      );
     }
 
     final url = Uri.parse('$baseUrl/songs/${song.songid}');
@@ -201,8 +212,12 @@ class ApiSongService implements SongService {
               'songsinger': song.songsinger.trim(),
               'songurl': song.songurl.trim(),
               'songcategory': song.songcategory,
-              'songnada': song.songnada?.trim().isNotEmpty == true ? song.songnada!.trim() : null,
-              'songduration': song.songduration?.trim().isNotEmpty == true ? song.songduration!.trim() : null,
+              'songnada': song.songnada?.trim().isNotEmpty == true
+                  ? song.songnada!.trim()
+                  : null,
+              'songduration': song.songduration?.trim().isNotEmpty == true
+                  ? song.songduration!.trim()
+                  : null,
             }),
           )
           .timeout(const Duration(seconds: 8));
@@ -246,7 +261,9 @@ class ApiSongService implements SongService {
   Future<bool> deleteSong(int songid) async {
     final token = await _getToken();
     if (token == null || token.isEmpty) {
-      throw Exception('Sesi login tidak ditemukan. Harap login terlebih dahulu.');
+      throw Exception(
+        'Sesi login tidak ditemukan. Harap login terlebih dahulu.',
+      );
     }
 
     final url = Uri.parse('$baseUrl/songs/$songid');

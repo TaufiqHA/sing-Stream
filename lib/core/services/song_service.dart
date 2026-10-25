@@ -1,7 +1,11 @@
 import '../../models/song_model.dart';
 
 abstract class SongService {
-  Future<List<SongModel>> getSongs({String? search, int? categoryId});
+  Future<List<SongModel>> getSongs({
+    String? search,
+    int? categoryId,
+    bool? isKaraoke,
+  });
   Future<SongModel> getSong(int id);
   Future<SongModel> createSong({
     required String songtitle,

@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+
 import '../../models/song_model.dart';
+import '../utils/song_type_helper.dart';
 import 'song_service.dart';
 
 /// Layanan lagu yang terhubung langsung ke YouTube untuk pencarian lagu karaoke tanpa API backend.
@@ -68,39 +71,54 @@ class YoutubeSongService implements SongService {
     return clean;
   }
 
+  /// Memastikan kueri pencarian lagu non-karaoke tidak menyertakan kata 'karaoke'.
+  static String formatNonKaraokeQuery(String? search) {
+    if (search == null || search.trim().isEmpty) {
+      return 'lagu indonesia terbaru';
+    }
+    return search.trim();
+  }
+
   /// Memeriksa apakah video mengandung indikator karaoke
   static bool isKaraokeVideo(Video video) {
-    final title = video.title.toLowerCase();
-    final author = video.author.toLowerCase();
-    return title.contains('karaoke') ||
-        title.contains('instrumental') ||
-        title.contains('minus one') ||
-        title.contains('tanpa vokal') ||
-        title.contains('no vocal') ||
-        author.contains('karaoke');
+    return SongTypeHelper.isKaraokeText(video.title, video.author);
   }
 
   @override
-  Future<List<SongModel>> getSongs({String? search, int? categoryId}) async {
-    final bool isInTest = isTestMode || (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST'));
+  Future<List<SongModel>> getSongs({
+    String? search,
+    int? categoryId,
+    bool? isKaraoke,
+  }) async {
+    final bool isInTest =
+        isTestMode ||
+        (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST'));
     if (isInTest) {
       final list = initialSongs ?? defaultPopularSongs;
+      Iterable<SongModel> result = list;
+      if (isKaraoke != null) {
+        result = result.where((s) => s.isKaraoke == isKaraoke);
+      }
       if (search != null && search.trim().isNotEmpty) {
         final q = search.trim().toLowerCase();
-        return list.where((s) =>
-          s.songtitle.toLowerCase().contains(q) ||
-          s.songsinger.toLowerCase().contains(q)
-        ).toList();
+        result = result.where(
+          (s) =>
+              s.songtitle.toLowerCase().contains(q) ||
+              s.songsinger.toLowerCase().contains(q),
+        );
       }
-      return list;
+      return result.toList();
     }
 
-    final query = formatKaraokeQuery(search);
+    final bool karaokeOnly = isKaraoke ?? true;
+    final query = karaokeOnly
+        ? formatKaraokeQuery(search)
+        : formatNonKaraokeQuery(search);
 
     try {
-      final searchList = await _yt.search.search(query).timeout(
-        const Duration(seconds: 8),
-      );
+      final searchList = await _yt.search
+          .search(query)
+          .timeout(const Duration(seconds: 8));
 
       final List<SongModel> results = [];
       final List<SongModel> nonKaraokeFallback = [];
@@ -114,6 +132,7 @@ class YoutubeSongService implements SongService {
           durationStr = '$minutes:$seconds';
         }
 
+        final bool videoIsKaraoke = isKaraokeVideo(video);
         final model = SongModel(
           songid: video.id.value.hashCode.abs(),
           songtitle: video.title,
@@ -122,12 +141,17 @@ class YoutubeSongService implements SongService {
           songcategory: categoryId ?? 1,
           songduration: durationStr ?? '03:30',
           songnada: '-',
+          karaokeFlag: videoIsKaraoke,
         );
 
-        if (isKaraokeVideo(video)) {
+        if (isKaraoke == null) {
+          if (videoIsKaraoke) {
+            results.add(model);
+          } else {
+            nonKaraokeFallback.add(model);
+          }
+        } else if (videoIsKaraoke == isKaraoke) {
           results.add(model);
-        } else {
-          nonKaraokeFallback.add(model);
         }
       }
 
@@ -135,29 +159,29 @@ class YoutubeSongService implements SongService {
         return results;
       }
 
-      // Fallback jika video hasil kueri tidak eksplisit menuliskan kata karaoke di judul
-      if (nonKaraokeFallback.isNotEmpty) {
+      // Fallback lintas jenis hanya dipakai saat tidak ada filter aktif.
+      if (isKaraoke == null && nonKaraokeFallback.isNotEmpty) {
         return nonKaraokeFallback;
       }
 
-      if (initialSongs != null || defaultPopularSongs.isNotEmpty) {
+      if (isKaraoke == null &&
+          (initialSongs != null || defaultPopularSongs.isNotEmpty)) {
         return initialSongs ?? defaultPopularSongs;
       }
 
       return results;
     } catch (e) {
       debugPrint('YouTube search error: $e');
-      return initialSongs ?? defaultPopularSongs;
+      final fallback = initialSongs ?? defaultPopularSongs;
+      if (isKaraoke == null) return fallback;
+      return fallback.where((s) => s.isKaraoke == isKaraoke).toList();
     }
   }
 
   @override
   Future<SongModel> getSong(int id) async {
     final songs = initialSongs ?? defaultPopularSongs;
-    return songs.firstWhere(
-      (s) => s.songid == id,
-      orElse: () => songs.first,
-    );
+    return songs.firstWhere((s) => s.songid == id, orElse: () => songs.first);
   }
 
   @override

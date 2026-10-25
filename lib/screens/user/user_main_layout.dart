@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+
 import '../../core/services/api_application_service.dart';
 import '../../core/services/application_service.dart';
 import '../../core/services/category_service.dart';
@@ -12,6 +14,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/youtube_helper.dart';
 import '../../models/application_model.dart';
 import '../../models/category_model.dart';
+import '../../models/song_filter.dart';
 import '../../models/song_model.dart';
 import '../../models/user_model.dart';
 import '../../services/ad_manager.dart';
@@ -57,12 +60,15 @@ class _UserMainLayoutState extends State<UserMainLayout> {
   List<SongModel> _allSongs = [];
   List<CategoryModel> _categories = [];
   bool _isLoading = true;
+  SongFilter _songFilter = SongFilter.karaoke;
+  String _lastSearchQuery = '';
 
   // Playback state
   SongModel? _currentSong;
   bool _isPlaying = false;
   Duration _currentPosition = Duration.zero;
-  final ValueNotifier<Duration> _currentPositionNotifier = ValueNotifier<Duration>(Duration.zero);
+  final ValueNotifier<Duration> _currentPositionNotifier =
+      ValueNotifier<Duration>(Duration.zero);
   Duration _totalDuration = const Duration(minutes: 3, seconds: 30);
   Timer? _playbackTimer;
 
@@ -87,9 +93,11 @@ class _UserMainLayoutState extends State<UserMainLayout> {
   @override
   void initState() {
     super.initState();
-    _songService = widget.songService ?? YoutubeSongService(isTestMode: widget.isTestMode);
+    _songService =
+        widget.songService ?? YoutubeSongService(isTestMode: widget.isTestMode);
     _categoryService = widget.categoryService ?? DummyCategoryService();
-    _castService = widget.castService ?? SmartTvCastService(isTestMode: widget.isTestMode);
+    _castService =
+        widget.castService ?? SmartTvCastService(isTestMode: widget.isTestMode);
     _applicationService = widget.applicationService ?? ApiApplicationService();
     _castSubscription = _castService.connectedDeviceStream.listen((_) {
       if (mounted) setState(() {});
@@ -126,7 +134,9 @@ class _UserMainLayoutState extends State<UserMainLayout> {
       );
 
       // Sinkronisasi posisi real-time dari video YouTube secara terisolasi tanpa memicu root setState
-      _videoStateSubscription = _youtubeController!.videoStateStream.listen((state) {
+      _videoStateSubscription = _youtubeController!.videoStateStream.listen((
+        state,
+      ) {
         if (!mounted) return;
         _updateCurrentPosition(state.position);
       });
@@ -135,8 +145,10 @@ class _UserMainLayoutState extends State<UserMainLayout> {
         if (!mounted) return;
 
         // Cegah race condition: jangan menimpa status pemutaran jika baru saja ada aksi manual user (<800ms)
-        final isRecentManualAction = _lastManualActionTime != null &&
-            DateTime.now().difference(_lastManualActionTime!).inMilliseconds < 800;
+        final isRecentManualAction =
+            _lastManualActionTime != null &&
+            DateTime.now().difference(_lastManualActionTime!).inMilliseconds <
+                800;
 
         if (!isRecentManualAction) {
           if (value.playerState == PlayerState.playing && !_isPlaying) {
@@ -255,7 +267,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
           debugPrint('User layout category load error: $e');
           return <CategoryModel>[];
         }),
-        _songService.getSongs().catchError((e) {
+        _songService.getSongs(isKaraoke: _songFilter.isKaraoke).catchError((e) {
           debugPrint('User layout song load error: $e');
           return <SongModel>[];
         }),
@@ -310,7 +322,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
     if (config == null || !config.isAdsActive) return;
 
     final ad = config.ads2Config;
-    final hasContent = (ad.isImage && (ad.image ?? '').trim().isNotEmpty) ||
+    final hasContent =
+        (ad.isImage && (ad.image ?? '').trim().isNotEmpty) ||
         ((ad.isNative || ad.isBanner) && ad.hasUnit);
     if (!ad.isInline || !hasContent) return;
 
@@ -330,7 +343,10 @@ class _UserMainLayoutState extends State<UserMainLayout> {
             Align(
               alignment: Alignment.centerRight,
               child: IconButton(
-                icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: AppColors.textMuted,
+                ),
                 onPressed: () => Navigator.of(ctx).pop(),
               ),
             ),
@@ -344,10 +360,18 @@ class _UserMainLayoutState extends State<UserMainLayout> {
     );
   }
 
-  Future<void> _searchSongs(String query) async {
+  Future<void> _searchSongs(String query, [SongFilter? filter]) async {
+    final selectedFilter = filter ?? _songFilter;
+    _lastSearchQuery = query;
+    if (selectedFilter != _songFilter) {
+      setState(() => _songFilter = selectedFilter);
+    }
     setState(() => _isLoading = true);
     try {
-      final songs = await _songService.getSongs(search: query);
+      final songs = await _songService.getSongs(
+        search: query,
+        isKaraoke: selectedFilter.isKaraoke,
+      );
       if (mounted) {
         setState(() {
           if (query.trim().isEmpty && !widget.isTestMode) {
@@ -364,6 +388,12 @@ class _UserMainLayoutState extends State<UserMainLayout> {
     }
   }
 
+  void _changeSongFilter(SongFilter filter) {
+    if (_songFilter == filter) return;
+    setState(() => _songFilter = filter);
+    _searchSongs(_lastSearchQuery, filter);
+  }
+
   void _playSong(SongModel song) {
     _lastManualActionTime = DateTime.now();
     _stopPlaybackTimer();
@@ -372,10 +402,7 @@ class _UserMainLayoutState extends State<UserMainLayout> {
     if (videoId != null && !widget.isTestMode) {
       if (_youtubeController != null) {
         try {
-          _youtubeController!.loadVideoById(
-            videoId: videoId,
-            startSeconds: 0,
-          );
+          _youtubeController!.loadVideoById(videoId: videoId, startSeconds: 0);
           _youtubeController!.seekTo(seconds: 0, allowSeekAhead: true);
           _youtubeController!.playVideo();
         } catch (_) {
@@ -457,7 +484,9 @@ class _UserMainLayoutState extends State<UserMainLayout> {
       final nextSong = _queue.removeAt(0);
       _playSong(nextSong);
     } else if (_allSongs.isNotEmpty && _currentSong != null) {
-      final currentIndex = _allSongs.indexWhere((s) => s.songid == _currentSong!.songid);
+      final currentIndex = _allSongs.indexWhere(
+        (s) => s.songid == _currentSong!.songid,
+      );
       if (currentIndex != -1 && currentIndex + 1 < _allSongs.length) {
         _playSong(_allSongs[currentIndex + 1]);
       } else {
@@ -479,7 +508,9 @@ class _UserMainLayoutState extends State<UserMainLayout> {
         _updateCurrentPosition(Duration.zero);
       });
     } else if (_allSongs.isNotEmpty && _currentSong != null) {
-      final currentIndex = _allSongs.indexWhere((s) => s.songid == _currentSong!.songid);
+      final currentIndex = _allSongs.indexWhere(
+        (s) => s.songid == _currentSong!.songid,
+      );
       if (currentIndex > 0) {
         _playSong(_allSongs[currentIndex - 1]);
       } else {
@@ -556,7 +587,6 @@ class _UserMainLayoutState extends State<UserMainLayout> {
     } catch (_) {}
   }
 
-
   void _addToQueue(SongModel song) {
     setState(() {
       _queue.add(song);
@@ -584,8 +614,6 @@ class _UserMainLayoutState extends State<UserMainLayout> {
     });
   }
 
-
-
   void _openCastModal(BuildContext context) {
     final videoId = YoutubeHelper.extractVideoId(_currentSong?.songurl);
     CastDeviceModal.show(
@@ -594,7 +622,9 @@ class _UserMainLayoutState extends State<UserMainLayout> {
       currentVideoId: videoId,
       songTitle: _currentSong?.songtitle,
       songSinger: _currentSong?.songsinger,
-      songThumbnail: videoId != null ? YoutubeHelper.getThumbnailUrl(videoId) : null,
+      songThumbnail: videoId != null
+          ? YoutubeHelper.getThumbnailUrl(videoId)
+          : null,
       onDeviceChanged: () {
         if (mounted) setState(() {});
       },
@@ -639,7 +669,10 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: AppColors.textMuted,
+                          ),
                           onPressed: () => Navigator.of(modalContext).pop(),
                         ),
                       ],
@@ -680,8 +713,13 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                           setModalState(() {});
                         },
                         onRefresh: _loadData,
-                        onSearch: (val) async {
-                          await _searchSongs(val);
+                        onSearch: (val, filter) async {
+                          await _searchSongs(val, filter);
+                          if (mounted) setModalState(() {});
+                        },
+                        selectedFilter: _songFilter,
+                        onFilterChanged: (filter) {
+                          _changeSongFilter(filter);
                           setModalState(() {});
                         },
                       ),
@@ -700,23 +738,27 @@ class _UserMainLayoutState extends State<UserMainLayout> {
   Widget build(BuildContext context) {
     final displayName = _currentUser?.displayName ?? 'Penyanyi';
     final username = _currentUser?.username ?? 'user';
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape ||
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape ||
         MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
-    final isCompactLandscape = isLandscape && MediaQuery.of(context).size.height < 550;
+    final isCompactLandscape =
+        isLandscape && MediaQuery.of(context).size.height < 550;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: AppColors.backgroundGradient,
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
         child: SafeArea(
           child: Column(
             children: [
               // 1. Header Bar (Minimalis & Tanpa Subteks)
-              _buildHeader(displayName, username, isCompact: isCompactLandscape),
+              _buildHeader(
+                displayName,
+                username,
+                isCompact: isCompactLandscape,
+              ),
 
               // Iklan slot 1 (Header / Atas)
               if (_appConfig != null)
@@ -731,7 +773,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final isLandscapeLayout = isLandscape ||
+                    final isLandscapeLayout =
+                        isLandscape ||
                         constraints.maxWidth > constraints.maxHeight;
 
                     // ================= 1. LANDSCAPE LAYOUT (Tablet & Smartphone) =================
@@ -768,7 +811,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                         youtubeController: _youtubeController,
                                         isTestMode: widget.isTestMode,
                                         onPlayPauseTapped: _togglePlayPause,
-                                        onOpenSearchModal: () => _openSongSearchModal(context),
+                                        onOpenSearchModal: () =>
+                                            _openSongSearchModal(context),
                                       ),
                                     ),
                                   ),
@@ -780,7 +824,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                     isPlaying: _isPlaying,
                                     hasSong: _currentSong != null,
                                     currentPosition: _currentPosition,
-                                    currentPositionListenable: _currentPositionNotifier,
+                                    currentPositionListenable:
+                                        _currentPositionNotifier,
                                     totalDuration: _totalDuration,
                                     onSeek: _seek,
                                     onTogglePlayPause: _togglePlayPause,
@@ -794,7 +839,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                     onVolumeChanged: _onVolumeChanged,
                                     onToggleMute: _toggleMute,
                                     onCastTapped: () => _openCastModal(context),
-                                    isCasting: _castService.connectedDevice != null,
+                                    isCasting:
+                                        _castService.connectedDevice != null,
                                   ),
                                 ],
                               ),
@@ -818,7 +864,10 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                 onReorderQueue: _reorderQueue,
                                 onClearQueue: _clearQueue,
                                 onRefresh: _loadData,
-                                onSearch: _searchSongs,
+                                onSearch: (val, filter) =>
+                                    _searchSongs(val, filter),
+                                selectedFilter: _songFilter,
+                                onFilterChanged: _changeSongFilter,
                                 isTestMode: widget.isTestMode,
                               ),
                             ),
@@ -828,7 +877,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                     }
 
                     // ================= 2. SMARTPHONE PORTRAIT LAYOUT (< 768px atau Vertikal) =================
-                    final isHeightConstrained = MediaQuery.of(context).size.height < 620;
+                    final isHeightConstrained =
+                        MediaQuery.of(context).size.height < 620;
 
                     if (isHeightConstrained) {
                       return SingleChildScrollView(
@@ -851,7 +901,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                               youtubeController: _youtubeController,
                               isTestMode: widget.isTestMode,
                               onPlayPauseTapped: _togglePlayPause,
-                              onOpenSearchModal: () => _openSongSearchModal(context),
+                              onOpenSearchModal: () =>
+                                  _openSongSearchModal(context),
                             ),
                             const SizedBox(height: 8),
 
@@ -861,7 +912,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                               isPlaying: _isPlaying,
                               hasSong: _currentSong != null,
                               currentPosition: _currentPosition,
-                              currentPositionListenable: _currentPositionNotifier,
+                              currentPositionListenable:
+                                  _currentPositionNotifier,
                               totalDuration: _totalDuration,
                               onSeek: _seek,
                               onTogglePlayPause: _togglePlayPause,
@@ -894,7 +946,10 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                 onReorderQueue: _reorderQueue,
                                 onClearQueue: _clearQueue,
                                 onRefresh: _loadData,
-                                onSearch: _searchSongs,
+                                onSearch: (val, filter) =>
+                                    _searchSongs(val, filter),
+                                selectedFilter: _songFilter,
+                                onFilterChanged: _changeSongFilter,
                                 isTestMode: widget.isTestMode,
                               ),
                             ),
@@ -923,7 +978,8 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                             youtubeController: _youtubeController,
                             isTestMode: widget.isTestMode,
                             onPlayPauseTapped: _togglePlayPause,
-                            onOpenSearchModal: () => _openSongSearchModal(context),
+                            onOpenSearchModal: () =>
+                                _openSongSearchModal(context),
                           ),
                           const SizedBox(height: 8),
 
@@ -965,7 +1021,10 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                               onReorderQueue: _reorderQueue,
                               onClearQueue: _clearQueue,
                               onRefresh: _loadData,
-                              onSearch: _searchSongs,
+                              onSearch: (val, filter) =>
+                                  _searchSongs(val, filter),
+                              selectedFilter: _songFilter,
+                              onFilterChanged: _changeSongFilter,
                               isTestMode: widget.isTestMode,
                             ),
                           ),
@@ -991,9 +1050,16 @@ class _UserMainLayoutState extends State<UserMainLayout> {
     );
   }
 
-  Widget _buildHeader(String displayName, String username, {bool isCompact = false}) {
+  Widget _buildHeader(
+    String displayName,
+    String username, {
+    bool isCompact = false,
+  }) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: isCompact ? 4.0 : 8.0),
+      padding: EdgeInsets.symmetric(
+        horizontal: 16.0,
+        vertical: isCompact ? 4.0 : 8.0,
+      ),
       child: Row(
         children: [
           // Logo & Title (Clean & Minimalist: No subtexts!)

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import '../../models/song_model.dart';
 import 'song_service.dart';
 
@@ -13,6 +14,7 @@ class DummySongService implements SongService {
       songurl: 'https://www.youtube.com/watch?v=0kFh_0l33rM',
       songcategory: 1,
       songnada: 'Wanita',
+      karaokeFlag: true,
       songduration: '04:03',
     ),
     SongModel(
@@ -22,6 +24,7 @@ class DummySongService implements SongService {
       songurl: 'https://www.youtube.com/watch?v=4E-l_P4_pYQ',
       songcategory: 2,
       songnada: 'Wanita',
+      karaokeFlag: true,
       songduration: '04:15',
     ),
     SongModel(
@@ -31,6 +34,7 @@ class DummySongService implements SongService {
       songurl: 'https://www.youtube.com/watch?v=vVj44t-j3tA',
       songcategory: 3,
       songnada: 'Pria',
+      karaokeFlag: true,
       songduration: '03:45',
     ),
     SongModel(
@@ -40,6 +44,7 @@ class DummySongService implements SongService {
       songurl: 'https://www.youtube.com/watch?v=2Vv-BfVoq4g',
       songcategory: 4,
       songnada: 'Pria',
+      karaokeFlag: true,
       songduration: '04:23',
     ),
     SongModel(
@@ -49,6 +54,7 @@ class DummySongService implements SongService {
       songurl: 'https://www.youtube.com/watch?v=UqNZZq3KzM4',
       songcategory: 1,
       songnada: 'Pria',
+      karaokeFlag: true,
       songduration: '03:42',
     ),
     SongModel(
@@ -58,6 +64,7 @@ class DummySongService implements SongService {
       songurl: 'https://www.youtube.com/watch?v=fM87R5-G5x8',
       songcategory: 2,
       songnada: 'Pria',
+      karaokeFlag: true,
       songduration: '04:50',
     ),
     SongModel(
@@ -67,17 +74,28 @@ class DummySongService implements SongService {
       songurl: 'https://www.youtube.com/watch?v=gdZLi9oWNZg',
       songcategory: 5,
       songnada: 'Pria',
+      karaokeFlag: true,
       songduration: '03:19',
     ),
   ];
 
   DummySongService([List<SongModel>? initialSongs]) {
-    _songs = initialSongs != null ? List.from(initialSongs) : List.from(_defaultSongs);
+    _songs = initialSongs != null
+        ? List.from(initialSongs)
+        : List.from(_defaultSongs);
   }
 
   @override
-  Future<List<SongModel>> getSongs({String? search, int? categoryId}) async {
+  Future<List<SongModel>> getSongs({
+    String? search,
+    int? categoryId,
+    bool? isKaraoke,
+  }) async {
     List<SongModel> result = List.from(_songs);
+
+    if (isKaraoke != null) {
+      result = result.where((s) => s.isKaraoke == isKaraoke).toList();
+    }
 
     if (search != null && search.trim().isNotEmpty) {
       final query = search.trim().toLowerCase();
@@ -125,7 +143,9 @@ class DummySongService implements SongService {
       songurl: songurl.trim(),
       songcategory: songcategory,
       songnada: songnada?.trim().isNotEmpty == true ? songnada!.trim() : null,
-      songduration: songduration?.trim().isNotEmpty == true ? songduration!.trim() : null,
+      songduration: songduration?.trim().isNotEmpty == true
+          ? songduration!.trim()
+          : null,
     );
 
     _songs.insert(0, newSong);

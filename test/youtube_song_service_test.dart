@@ -44,18 +44,91 @@ void main() {
       expect(results.first.songtitle, 'Kemesraan');
     });
 
-    test('formatKaraokeQuery formats queries correctly to target karaoke tracks', () {
-      expect(YoutubeSongService.formatKaraokeQuery(null), 'karaoke hits indonesia');
-      expect(YoutubeSongService.formatKaraokeQuery(''), 'karaoke hits indonesia');
-      expect(YoutubeSongService.formatKaraokeQuery('   '), 'karaoke hits indonesia');
-      expect(YoutubeSongService.formatKaraokeQuery('Dewa 19'), 'Dewa 19 karaoke');
-      expect(YoutubeSongService.formatKaraokeQuery('Pupus Karaoke'), 'Pupus Karaoke');
-      expect(YoutubeSongService.formatKaraokeQuery('sheila on 7 karaoke version'), 'sheila on 7 karaoke version');
+    test(
+      'formatKaraokeQuery formats queries correctly to target karaoke tracks',
+      () {
+        expect(
+          YoutubeSongService.formatKaraokeQuery(null),
+          'karaoke hits indonesia',
+        );
+        expect(
+          YoutubeSongService.formatKaraokeQuery(''),
+          'karaoke hits indonesia',
+        );
+        expect(
+          YoutubeSongService.formatKaraokeQuery('   '),
+          'karaoke hits indonesia',
+        );
+        expect(
+          YoutubeSongService.formatKaraokeQuery('Dewa 19'),
+          'Dewa 19 karaoke',
+        );
+        expect(
+          YoutubeSongService.formatKaraokeQuery('Pupus Karaoke'),
+          'Pupus Karaoke',
+        );
+        expect(
+          YoutubeSongService.formatKaraokeQuery('sheila on 7 karaoke version'),
+          'sheila on 7 karaoke version',
+        );
+      },
+    );
+
+    test('formatNonKaraokeQuery keeps the query without adding karaoke', () {
+      expect(
+        YoutubeSongService.formatNonKaraokeQuery(null),
+        'lagu indonesia terbaru',
+      );
+      expect(
+        YoutubeSongService.formatNonKaraokeQuery(''),
+        'lagu indonesia terbaru',
+      );
+      expect(
+        YoutubeSongService.formatNonKaraokeQuery('   '),
+        'lagu indonesia terbaru',
+      );
+      expect(YoutubeSongService.formatNonKaraokeQuery('Dewa 19'), 'Dewa 19');
+      expect(
+        YoutubeSongService.formatNonKaraokeQuery('Pupus Dewa 19'),
+        'Pupus Dewa 19',
+      );
+    });
+
+    test('separates karaoke and non-karaoke songs based on title', () async {
+      final service = YoutubeSongService(
+        isTestMode: true,
+        initialSongs: [
+          const SongModel(
+            songid: 1,
+            songtitle: 'Pupus - Dewa 19 (Karaoke)',
+            songsinger: 'Dewa 19',
+            songurl: 'https://www.youtube.com/watch?v=pupus',
+            songcategory: 1,
+          ),
+          const SongModel(
+            songid: 2,
+            songtitle: 'Pupus - Dewa 19 (Official Audio)',
+            songsinger: 'Dewa 19',
+            songurl: 'https://www.youtube.com/watch?v=pupus-official',
+            songcategory: 1,
+          ),
+        ],
+      );
+
+      final karaokeSongs = await service.getSongs(isKaraoke: true);
+      expect(karaokeSongs.length, 1);
+      expect(karaokeSongs.first.songtitle, contains('Karaoke'));
+
+      final nonKaraokeSongs = await service.getSongs(isKaraoke: false);
+      expect(nonKaraokeSongs.length, 1);
+      expect(nonKaraokeSongs.first.songtitle, contains('Official Audio'));
     });
   });
 
   group('UserMainLayout with YoutubeSongService Integration Tests', () {
-    testWidgets('searches song and adds to playlist queue', (WidgetTester tester) async {
+    testWidgets('searches song and adds to playlist queue', (
+      WidgetTester tester,
+    ) async {
       tester.view.physicalSize = const Size(1200, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -98,7 +171,10 @@ void main() {
       expect(find.text('Separuh Nafas - Dewa 19 (Karaoke)'), findsOneWidget);
 
       // Cari lagu via TextField
-      final searchFinder = find.widgetWithText(TextField, 'Cari lagu karaoke...');
+      final searchFinder = find.widgetWithText(
+        TextField,
+        'Cari lagu karaoke...',
+      );
       await tester.enterText(searchFinder, 'Pupus');
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
@@ -114,11 +190,67 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verifikasi notifikasi snackbar
-      expect(find.text('"Pupus - Dewa 19 (Karaoke)" ditambahkan ke playlist'), findsOneWidget);
+      expect(
+        find.text('"Pupus - Dewa 19 (Karaoke)" ditambahkan ke playlist'),
+        findsOneWidget,
+      );
 
       // Verifikasi lagu muncul di antrean playlist
       final playlistCard = find.byKey(const ValueKey('queue_201_0'));
       expect(playlistCard, findsOneWidget);
+    });
+
+    testWidgets('switching to Non Karaoke searches non-karaoke songs', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final service = YoutubeSongService(
+        isTestMode: true,
+        initialSongs: [
+          const SongModel(
+            songid: 301,
+            songtitle: 'Pupus - Dewa 19 (Karaoke)',
+            songsinger: 'Dewa 19',
+            songurl: 'https://www.youtube.com/watch?v=pupus-karaoke',
+            songcategory: 1,
+          ),
+          const SongModel(
+            songid: 302,
+            songtitle: 'Pupus - Dewa 19 (Official Audio)',
+            songsinger: 'Dewa 19',
+            songurl: 'https://www.youtube.com/watch?v=pupus-official',
+            songcategory: 1,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: UserMainLayout(
+            songService: service,
+            categoryService: DummyCategoryService(),
+            isTestMode: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Default Karaoke: hanya lagu karaoke yang tampil.
+      expect(find.text('Pupus - Dewa 19 (Karaoke)'), findsOneWidget);
+      expect(find.text('Pupus - Dewa 19 (Official Audio)'), findsNothing);
+
+      // Buka dropdown filter lalu pilih Non Karaoke.
+      await tester.tap(find.text('Karaoke'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Non Karaoke'));
+      await tester.pumpAndSettle();
+
+      // Hasil pencarian berganti ke lagu non-karaoke.
+      expect(find.text('Pupus - Dewa 19 (Karaoke)'), findsNothing);
+      expect(find.text('Pupus - Dewa 19 (Official Audio)'), findsOneWidget);
     });
   });
 }
