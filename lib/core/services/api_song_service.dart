@@ -87,6 +87,22 @@ class ApiSongService implements SongService {
   }
 
   @override
+  Future<SongPage> getSongsPage({
+    String? search,
+    int? categoryId,
+    bool? isKaraoke,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final songs = await getSongs(
+      search: search,
+      categoryId: categoryId,
+      isKaraoke: isKaraoke,
+    );
+    return pageSongs(songs, page: page, pageSize: pageSize);
+  }
+
+  @override
   Future<SongModel> getSong(int id) async {
     final url = Uri.parse('$baseUrl/songs/$id');
     try {

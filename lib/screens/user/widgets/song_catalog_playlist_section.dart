@@ -22,6 +22,9 @@ class SongCatalogPlaylistSection extends StatefulWidget {
   final VoidCallback? onClearQueue;
   final Future<void> Function()? onRefresh;
   final void Function(String query, SongFilter filter)? onSearch;
+  final Future<void> Function()? onLoadMore;
+  final bool isLoadingMore;
+  final bool hasMore;
   final SongFilter selectedFilter;
   final ValueChanged<SongFilter>? onFilterChanged;
   final Axis axis;
@@ -41,6 +44,9 @@ class SongCatalogPlaylistSection extends StatefulWidget {
     this.onClearQueue,
     this.onRefresh,
     this.onSearch,
+    this.onLoadMore,
+    this.isLoadingMore = false,
+    this.hasMore = true,
     this.selectedFilter = SongFilter.karaoke,
     this.onFilterChanged,
     this.axis = Axis.horizontal,
@@ -54,11 +60,15 @@ class SongCatalogPlaylistSection extends StatefulWidget {
 
 class _SongCatalogPlaylistSectionState
     extends State<SongCatalogPlaylistSection> {
+  static const double _loadMoreThreshold = 300;
+
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _searchScrollController = ScrollController();
 
   int _compactTabIndex = 0; // 0 = Cari Lagu, 1 = Playlist
 
   Timer? _searchDebounce;
+  DateTime? _lastLoadMoreTrigger;
 
   void _triggerSearch(String val) {
     if (widget.onSearch != null) {
@@ -69,23 +79,69 @@ class _SongCatalogPlaylistSectionState
     }
   }
 
-  List<SongModel> _shuffledSongs = [];
-
-  void _syncShuffledSongs({bool force = false}) {
-    if (widget.isTestMode) {
-      _shuffledSongs = List<SongModel>.from(widget.songs);
+  void _maybeLoadMore() {
+    if (widget.onLoadMore == null || widget.isLoadingMore || !widget.hasMore) {
       return;
     }
-    if (force ||
-        _shuffledSongs.isEmpty ||
-        _shuffledSongs.length != widget.songs.length) {
-      _shuffledSongs = List<SongModel>.from(widget.songs)..shuffle();
+    if (!_searchScrollController.hasClients) return;
+
+    final position = _searchScrollController.position;
+    if (position.pixels < position.maxScrollExtent - _loadMoreThreshold) {
+      return;
     }
+
+    final now = DateTime.now();
+    if (_lastLoadMoreTrigger != null &&
+        now.difference(_lastLoadMoreTrigger!).inMilliseconds < 800) {
+      return;
+    }
+    _lastLoadMoreTrigger = now;
+    widget.onLoadMore!();
+  }
+
+  bool get _showSearchFooter => widget.isLoadingMore || !widget.hasMore;
+
+  List<SongModel> _shuffledSongs = [];
+  List<SongModel> _lastRawSongs = [];
+
+  void _syncShuffledSongs({bool force = false}) {
+    final incoming = widget.songs;
+    if (widget.isTestMode) {
+      _shuffledSongs = List<SongModel>.from(incoming);
+      _lastRawSongs = List<SongModel>.from(incoming);
+      return;
+    }
+
+    final isAppend =
+        !force &&
+        _shuffledSongs.isNotEmpty &&
+        incoming.length > _lastRawSongs.length &&
+        _hasSamePrefix(incoming, _lastRawSongs);
+
+    if (isAppend) {
+      final existingIds = _shuffledSongs.map((song) => song.songid).toSet();
+      final appended = incoming
+          .where((song) => existingIds.add(song.songid))
+          .toList();
+      _shuffledSongs = [..._shuffledSongs, ...appended];
+    } else {
+      _shuffledSongs = List<SongModel>.from(incoming)..shuffle();
+    }
+    _lastRawSongs = List<SongModel>.from(incoming);
+  }
+
+  bool _hasSamePrefix(List<SongModel> incoming, List<SongModel> reference) {
+    if (incoming.length < reference.length) return false;
+    for (var i = 0; i < reference.length; i++) {
+      if (incoming[i].songid != reference[i].songid) return false;
+    }
+    return true;
   }
 
   @override
   void initState() {
     super.initState();
+    _searchScrollController.addListener(_maybeLoadMore);
     _syncShuffledSongs(force: true);
     _searchController.addListener(() {
       setState(() {});
@@ -96,13 +152,14 @@ class _SongCatalogPlaylistSectionState
   void didUpdateWidget(covariant SongCatalogPlaylistSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.songs != oldWidget.songs) {
-      _syncShuffledSongs(force: true);
+      _syncShuffledSongs();
     }
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _searchScrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -362,11 +419,15 @@ class _SongCatalogPlaylistSectionState
                   ),
                 )
               : ListView.separated(
+                  controller: _searchScrollController,
                   padding: const EdgeInsets.only(bottom: 8),
-                  itemCount: filteredSongs.length,
+                  itemCount: filteredSongs.length + (_showSearchFooter ? 1 : 0),
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 6),
                   itemBuilder: (context, index) {
+                    if (index >= filteredSongs.length) {
+                      return _buildSearchFooter();
+                    }
                     final song = filteredSongs[index];
                     final categoryName = _getCategoryName(
                       song.songcategory,
@@ -634,6 +695,41 @@ class _SongCatalogPlaylistSectionState
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSearchFooter() {
+    if (widget.isLoadingMore) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentCyan),
+              ),
+            ),
+            SizedBox(width: 6),
+            Text(
+              'Memuat lagu lainnya...',
+              style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Text(
+        'Semua hasil sudah ditampilkan',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+      ),
     );
   }
 

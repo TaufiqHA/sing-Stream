@@ -56,10 +56,16 @@ class _UserMainLayoutState extends State<UserMainLayout> {
   ApplicationModel? _appConfig;
   bool _middleAdShown = false;
 
+  static const int _songsPerPage = 20;
+
   UserModel? _currentUser;
   List<SongModel> _allSongs = [];
   List<CategoryModel> _categories = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMoreSongs = true;
+  int _songPage = 0;
+  int _searchGeneration = 0;
   SongFilter _songFilter = SongFilter.karaoke;
   String _lastSearchQuery = '';
 
@@ -256,7 +262,14 @@ class _UserMainLayoutState extends State<UserMainLayout> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    final generation = ++_searchGeneration;
+    _lastSearchQuery = '';
+    setState(() {
+      _isLoading = true;
+      _isLoadingMore = false;
+      _hasMoreSongs = true;
+      _songPage = 0;
+    });
 
     try {
       final storage = await StorageService.getInstance();
@@ -267,38 +280,46 @@ class _UserMainLayoutState extends State<UserMainLayout> {
           debugPrint('User layout category load error: $e');
           return <CategoryModel>[];
         }),
-        _songService.getSongs(isKaraoke: _songFilter.isKaraoke).catchError((e) {
-          debugPrint('User layout song load error: $e');
-          return <SongModel>[];
-        }),
+        _songService
+            .getSongsPage(
+              isKaraoke: _songFilter.isKaraoke,
+              page: 1,
+              pageSize: _songsPerPage,
+            )
+            .catchError((e) {
+              debugPrint('User layout song load error: $e');
+              return const SongPage(songs: [], hasMore: false);
+            }),
       ]);
 
-      final cats = results[0] as List<CategoryModel>;
-      final songs = results[1] as List<SongModel>;
+      if (!mounted || generation != _searchGeneration) return;
 
-      if (mounted) {
-        setState(() {
-          _currentUser = user;
-          _categories = cats.isNotEmpty ? cats : _categories;
-          final randomizedSongs = List<SongModel>.from(songs);
-          if (!widget.isTestMode) {
-            randomizedSongs.shuffle();
-          }
-          _allSongs = randomizedSongs.isNotEmpty ? randomizedSongs : _allSongs;
-          // Saat pertama kali dibuka, player dalam kondisi kosong (standby).
-          // Lagu baru muncul ketika pengguna memilih lagu dari katalog.
-          _currentSong = null;
-          _isLoading = false;
-        });
-      }
+      final cats = results[0] as List<CategoryModel>;
+      final songPage = results[1] as SongPage;
+      final songs = songPage.songs;
+
+      setState(() {
+        _currentUser = user;
+        _categories = cats.isNotEmpty ? cats : _categories;
+        final randomizedSongs = List<SongModel>.from(songs);
+        if (!widget.isTestMode) {
+          randomizedSongs.shuffle();
+        }
+        _allSongs = randomizedSongs.isNotEmpty ? randomizedSongs : _allSongs;
+        _songPage = 1;
+        _hasMoreSongs = songPage.hasMore && randomizedSongs.isNotEmpty;
+        // Saat pertama kali dibuka, player dalam kondisi kosong (standby).
+        // Lagu baru muncul ketika pengguna memilih lagu dari katalog.
+        _currentSong = null;
+        _isLoading = false;
+      });
 
       await _loadAppConfig();
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -362,29 +383,72 @@ class _UserMainLayoutState extends State<UserMainLayout> {
 
   Future<void> _searchSongs(String query, [SongFilter? filter]) async {
     final selectedFilter = filter ?? _songFilter;
+    final generation = ++_searchGeneration;
     _lastSearchQuery = query;
     if (selectedFilter != _songFilter) {
       setState(() => _songFilter = selectedFilter);
     }
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isLoadingMore = false;
+      _hasMoreSongs = true;
+      _songPage = 0;
+    });
     try {
-      final songs = await _songService.getSongs(
+      final page = await _songService.getSongsPage(
         search: query,
         isKaraoke: selectedFilter.isKaraoke,
+        page: 1,
+        pageSize: _songsPerPage,
       );
-      if (mounted) {
-        setState(() {
-          if (query.trim().isEmpty && !widget.isTestMode) {
-            songs.shuffle();
-          }
-          _allSongs = songs;
-          _isLoading = false;
-        });
+      if (!mounted || generation != _searchGeneration) return;
+
+      final songs = List<SongModel>.from(page.songs);
+      if (query.trim().isEmpty && !widget.isTestMode) {
+        songs.shuffle();
       }
+      setState(() {
+        _allSongs = songs;
+        _songPage = 1;
+        _hasMoreSongs = page.hasMore && songs.isNotEmpty;
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// Memuat 20 lagu berikutnya saat daftar hasil pencarian digulir ke bawah.
+  Future<void> _loadMoreSongs() async {
+    if (_isLoading || _isLoadingMore || !_hasMoreSongs) return;
+    final generation = _searchGeneration;
+    final nextPage = _songPage + 1;
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final page = await _songService.getSongsPage(
+        search: _lastSearchQuery,
+        isKaraoke: _songFilter.isKaraoke,
+        page: nextPage,
+        pageSize: _songsPerPage,
+      );
+      if (!mounted || generation != _searchGeneration) return;
+
+      final existingIds = _allSongs.map((song) => song.songid).toSet();
+      final newSongs = page.songs
+          .where((song) => existingIds.add(song.songid))
+          .toList();
+      setState(() {
+        _allSongs = [..._allSongs, ...newSongs];
+        _songPage = nextPage;
+        _hasMoreSongs = page.hasMore && newSongs.isNotEmpty;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      debugPrint('User layout load more error: $e');
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -717,6 +781,14 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                           await _searchSongs(val, filter);
                           if (mounted) setModalState(() {});
                         },
+                        onLoadMore: () async {
+                          final future = _loadMoreSongs();
+                          setModalState(() {});
+                          await future;
+                          if (mounted) setModalState(() {});
+                        },
+                        isLoadingMore: _isLoadingMore,
+                        hasMore: _hasMoreSongs,
                         selectedFilter: _songFilter,
                         onFilterChanged: (filter) {
                           _changeSongFilter(filter);
@@ -866,6 +938,9 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                 onRefresh: _loadData,
                                 onSearch: (val, filter) =>
                                     _searchSongs(val, filter),
+                                onLoadMore: _loadMoreSongs,
+                                isLoadingMore: _isLoadingMore,
+                                hasMore: _hasMoreSongs,
                                 selectedFilter: _songFilter,
                                 onFilterChanged: _changeSongFilter,
                                 isTestMode: widget.isTestMode,
@@ -948,6 +1023,9 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                                 onRefresh: _loadData,
                                 onSearch: (val, filter) =>
                                     _searchSongs(val, filter),
+                                onLoadMore: _loadMoreSongs,
+                                isLoadingMore: _isLoadingMore,
+                                hasMore: _hasMoreSongs,
                                 selectedFilter: _songFilter,
                                 onFilterChanged: _changeSongFilter,
                                 isTestMode: widget.isTestMode,
@@ -1023,6 +1101,9 @@ class _UserMainLayoutState extends State<UserMainLayout> {
                               onRefresh: _loadData,
                               onSearch: (val, filter) =>
                                   _searchSongs(val, filter),
+                              onLoadMore: _loadMoreSongs,
+                              isLoadingMore: _isLoadingMore,
+                              hasMore: _hasMoreSongs,
                               selectedFilter: _songFilter,
                               onFilterChanged: _changeSongFilter,
                               isTestMode: widget.isTestMode,

@@ -84,16 +84,70 @@ class YoutubeSongService implements SongService {
     return SongTypeHelper.isKaraokeText(video.title, video.author);
   }
 
+  /// Cursor pencarian YouTube yang sedang aktif, dipakai untuk pagination.
+  VideoSearchList? _activeSearchList;
+  String? _activeSearchKey;
+
+  static const int _maxBatchesPerPage = 5;
+
+  static bool get _isTestEnvironment =>
+      !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+
+  /// Mengubah daftar video menjadi model lagu sesuai filter jenis lagu.
+  List<SongModel> _convertVideos(
+    Iterable<Video> videos, {
+    int? categoryId,
+    bool? isKaraoke,
+  }) {
+    final results = <SongModel>[];
+    final nonKaraokeFallback = <SongModel>[];
+
+    for (final video in videos) {
+      final dur = video.duration;
+      String? durationStr;
+      if (dur != null) {
+        final minutes = dur.inMinutes.toString().padLeft(2, '0');
+        final seconds = (dur.inSeconds % 60).toString().padLeft(2, '0');
+        durationStr = '$minutes:$seconds';
+      }
+
+      final bool videoIsKaraoke = isKaraokeVideo(video);
+      final model = SongModel(
+        songid: video.id.value.hashCode.abs(),
+        songtitle: video.title,
+        songsinger: video.author,
+        songurl: 'https://www.youtube.com/watch?v=${video.id.value}',
+        songcategory: categoryId ?? 1,
+        songduration: durationStr ?? '03:30',
+        songnada: '-',
+        karaokeFlag: videoIsKaraoke,
+      );
+
+      if (isKaraoke == null) {
+        if (videoIsKaraoke) {
+          results.add(model);
+        } else {
+          nonKaraokeFallback.add(model);
+        }
+      } else if (videoIsKaraoke == isKaraoke) {
+        results.add(model);
+      }
+    }
+
+    // Fallback lintas jenis hanya dipakai saat tidak ada filter aktif.
+    if (results.isEmpty && isKaraoke == null) {
+      return nonKaraokeFallback;
+    }
+    return results;
+  }
+
   @override
   Future<List<SongModel>> getSongs({
     String? search,
     int? categoryId,
     bool? isKaraoke,
   }) async {
-    final bool isInTest =
-        isTestMode ||
-        (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST'));
-    if (isInTest) {
+    if (isTestMode || _isTestEnvironment) {
       final list = initialSongs ?? defaultPopularSongs;
       Iterable<SongModel> result = list;
       if (isKaraoke != null) {
@@ -120,48 +174,14 @@ class YoutubeSongService implements SongService {
           .search(query)
           .timeout(const Duration(seconds: 8));
 
-      final List<SongModel> results = [];
-      final List<SongModel> nonKaraokeFallback = [];
-
-      for (final video in searchList) {
-        final dur = video.duration;
-        String? durationStr;
-        if (dur != null) {
-          final minutes = dur.inMinutes.toString().padLeft(2, '0');
-          final seconds = (dur.inSeconds % 60).toString().padLeft(2, '0');
-          durationStr = '$minutes:$seconds';
-        }
-
-        final bool videoIsKaraoke = isKaraokeVideo(video);
-        final model = SongModel(
-          songid: video.id.value.hashCode.abs(),
-          songtitle: video.title,
-          songsinger: video.author,
-          songurl: 'https://www.youtube.com/watch?v=${video.id.value}',
-          songcategory: categoryId ?? 1,
-          songduration: durationStr ?? '03:30',
-          songnada: '-',
-          karaokeFlag: videoIsKaraoke,
-        );
-
-        if (isKaraoke == null) {
-          if (videoIsKaraoke) {
-            results.add(model);
-          } else {
-            nonKaraokeFallback.add(model);
-          }
-        } else if (videoIsKaraoke == isKaraoke) {
-          results.add(model);
-        }
-      }
+      final results = _convertVideos(
+        searchList,
+        categoryId: categoryId,
+        isKaraoke: isKaraoke,
+      );
 
       if (results.isNotEmpty) {
         return results;
-      }
-
-      // Fallback lintas jenis hanya dipakai saat tidak ada filter aktif.
-      if (isKaraoke == null && nonKaraokeFallback.isNotEmpty) {
-        return nonKaraokeFallback;
       }
 
       if (isKaraoke == null &&
@@ -175,6 +195,96 @@ class YoutubeSongService implements SongService {
       final fallback = initialSongs ?? defaultPopularSongs;
       if (isKaraoke == null) return fallback;
       return fallback.where((s) => s.isKaraoke == isKaraoke).toList();
+    }
+  }
+
+  @override
+  Future<SongPage> getSongsPage({
+    String? search,
+    int? categoryId,
+    bool? isKaraoke,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    if (isTestMode || _isTestEnvironment) {
+      final songs = await getSongs(
+        search: search,
+        categoryId: categoryId,
+        isKaraoke: isKaraoke,
+      );
+      return pageSongs(songs, page: page, pageSize: pageSize);
+    }
+
+    final bool karaokeOnly = isKaraoke ?? true;
+    final query = karaokeOnly
+        ? formatKaraokeQuery(search)
+        : formatNonKaraokeQuery(search);
+    final searchKey = '$query|${isKaraoke ?? 'all'}';
+    final safePageSize = pageSize < 1 ? 1 : pageSize;
+
+    try {
+      VideoSearchList? list;
+      if (page <= 1 ||
+          _activeSearchList == null ||
+          _activeSearchKey != searchKey) {
+        list = await _yt.search
+            .search(query)
+            .timeout(const Duration(seconds: 8));
+        _activeSearchKey = searchKey;
+      } else {
+        list = await _activeSearchList!.nextPage().timeout(
+          const Duration(seconds: 8),
+        );
+      }
+      _activeSearchList = list;
+
+      final results = <SongModel>[];
+      final seenIds = <int>{};
+      var exhausted = list == null;
+      var batches = 0;
+
+      // Filter karaoke dapat membuang sebagian hasil, jadi ambil beberapa batch
+      // tambahan sampai target satu halaman terpenuhi.
+      while (list != null &&
+          results.length < safePageSize &&
+          batches < _maxBatchesPerPage) {
+        final mapped = _convertVideos(
+          list,
+          categoryId: categoryId,
+          isKaraoke: isKaraoke,
+        );
+        for (final song in mapped) {
+          if (seenIds.add(song.songid)) {
+            results.add(song);
+          }
+        }
+        batches++;
+
+        if (results.length >= safePageSize) break;
+
+        final next = await list.nextPage().timeout(const Duration(seconds: 8));
+        if (next == null) {
+          exhausted = true;
+          break;
+        }
+        list = next;
+        _activeSearchList = next;
+      }
+
+      return SongPage(songs: results, hasMore: !exhausted);
+    } catch (e) {
+      debugPrint('YouTube search page error: $e');
+      _activeSearchList = null;
+      _activeSearchKey = null;
+      if (page > 1) return const SongPage(songs: [], hasMore: false);
+      final fallback = initialSongs ?? defaultPopularSongs;
+      final filtered = isKaraoke == null
+          ? fallback
+          : fallback.where((s) => s.isKaraoke == isKaraoke).toList();
+      return SongPage(
+        songs: filtered.take(safePageSize).toList(),
+        hasMore: filtered.length > safePageSize,
+      );
     }
   }
 

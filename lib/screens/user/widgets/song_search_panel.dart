@@ -21,6 +21,9 @@ class SongSearchPanel extends StatefulWidget {
   final VoidCallback? onClearQueue;
   final Future<void> Function()? onRefresh;
   final void Function(String query, SongFilter filter)? onSearch;
+  final Future<void> Function()? onLoadMore;
+  final bool isLoadingMore;
+  final bool hasMore;
   final SongFilter selectedFilter;
   final ValueChanged<SongFilter>? onFilterChanged;
 
@@ -37,6 +40,9 @@ class SongSearchPanel extends StatefulWidget {
     this.onClearQueue,
     this.onRefresh,
     this.onSearch,
+    this.onLoadMore,
+    this.isLoadingMore = false,
+    this.hasMore = true,
     this.selectedFilter = SongFilter.karaoke,
     this.onFilterChanged,
   });
@@ -46,9 +52,13 @@ class SongSearchPanel extends StatefulWidget {
 }
 
 class _SongSearchPanelState extends State<SongSearchPanel> {
+  static const double _loadMoreThreshold = 300;
+
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _catalogScrollController = ScrollController();
   int _activeTab = 0; // 0 = Katalog Lagu, 1 = Antrean (Queue)
   Timer? _searchDebounce;
+  DateTime? _lastLoadMoreTrigger;
 
   void _triggerSearch(String val) {
     if (widget.onSearch != null) {
@@ -59,9 +69,30 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
     }
   }
 
+  void _maybeLoadMore() {
+    if (widget.onLoadMore == null || widget.isLoadingMore || !widget.hasMore) {
+      return;
+    }
+    if (!_catalogScrollController.hasClients) return;
+
+    final position = _catalogScrollController.position;
+    if (position.pixels < position.maxScrollExtent - _loadMoreThreshold) {
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastLoadMoreTrigger != null &&
+        now.difference(_lastLoadMoreTrigger!).inMilliseconds < 800) {
+      return;
+    }
+    _lastLoadMoreTrigger = now;
+    widget.onLoadMore!();
+  }
+
   @override
   void initState() {
     super.initState();
+    _catalogScrollController.addListener(_maybeLoadMore);
     _searchController.addListener(() {
       setState(() {});
     });
@@ -70,6 +101,7 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _catalogScrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -251,6 +283,43 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
     );
   }
 
+  bool get _showCatalogFooter => widget.isLoadingMore || !widget.hasMore;
+
+  Widget _buildCatalogFooter() {
+    if (widget.isLoadingMore) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentCyan),
+              ),
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Memuat lagu lainnya...',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Text(
+        'Semua hasil sudah ditampilkan',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+      ),
+    );
+  }
+
   Widget _buildCatalogTab(List<SongModel> filtered) {
     return Column(
       children: [
@@ -379,11 +448,15 @@ class _SongSearchPanelState extends State<SongSearchPanel> {
                   color: AppColors.accentCyan,
                   backgroundColor: AppColors.surfaceDark,
                   child: ListView.separated(
+                    controller: _catalogScrollController,
                     padding: const EdgeInsets.all(12),
-                    itemCount: filtered.length,
+                    itemCount: filtered.length + (_showCatalogFooter ? 1 : 0),
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 8),
                     itemBuilder: (context, index) {
+                      if (index >= filtered.length) {
+                        return _buildCatalogFooter();
+                      }
                       final song = filtered[index];
                       final isCurrentlyPlaying =
                           widget.currentPlayingSong?.songid == song.songid;
